@@ -5,7 +5,7 @@ codes websites give you to get back in when your MFA authenticator is gone. It
 holds them encrypted, exports an encrypted file, and prints a QR backup and a
 key card for offline storage.
 
-![screenshot](docs\screenshot.png)
+![screenshot](docs/screenshot.png)
 
 Open `index.html`. No build step, no dependencies, no network calls.
 
