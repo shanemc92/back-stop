@@ -237,12 +237,34 @@ def unpack_paper(text):
             total = n
         elif total != n:
             raise ValueError("these chunks are from different backups (%d and %d)" % (total, n))
+        if not 1 <= i <= n:
+            raise ValueError("a chunk claims to be sheet %d of %d, which cannot be right" % (i, n))
         found[i] = payload
     if total is None:
         raise ValueError("no back-stop chunks found in that text (expected BS1:1/n:...)")
     missing = [i for i in range(1, total + 1) if i not in found]
     if missing:
-        raise ValueError("missing chunk %s of %d" % (", ".join(map(str, missing)), total))
+        # Name the sheet to go and look for, and say plainly that there is no
+        # partial recovery: the body is one AES-GCM ciphertext, so an
+        # incomplete envelope yields nothing at all rather than some of the
+        # codes. Somebody staring at this message needs to know that finding
+        # the sheet is the only route, not keep retrying the scan.
+        sheets = lambda ns: ("sheet " if len(ns) == 1 else "sheets ") + \
+                             ", ".join(str(i) for i in ns)
+        have = sorted(found)
+        raise ValueError(
+            "this backup is %d sheets and %s %s not here.\n"
+            "  scanned so far : %s\n"
+            "  still needed   : %s\n"
+            "Every sheet is required. The codes are one encrypted block, so a\n"
+            "partial set decrypts to nothing rather than to some of the codes -\n"
+            "there is no partial recovery to attempt. Find %s and scan %s in,\n"
+            "in any order, alongside what you already have."
+            % (total, sheets(missing), "is" if len(missing) == 1 else "are",
+               sheets(have) if have else "nothing yet",
+               sheets(missing),
+               "the missing %s" % sheets(missing) if len(missing) == 1 else "them",
+               "it" if len(missing) == 1 else "them"))
     joined = "".join(found[i] for i in range(1, total + 1))
     return base64.b64decode(joined + "=" * (-len(joined) % 4))
 
@@ -336,8 +358,20 @@ def open_vault(env, passphrase=None, data_key=None):
 
 # ---------------------------------------------------------------- output
 
+def _sort_key(item):
+    """Match the order index.html shows. It sorts with localeCompare and
+    numeric collation, so provider-2 comes before provider-10; the digit-run
+    split below reproduces that without a locale library. Blank providers go
+    last, as they do in the tool."""
+    def natural(s):
+        return [int(p) if p.isdigit() else p.casefold()
+                for p in re.split(r"(\d+)", (s or "").strip())]
+    site = (item.get("site") or "").strip()
+    return (0 if site else 1, natural(site), natural(item.get("user")))
+
+
 def render(vault):
-    items = vault.get("items", [])
+    items = sorted(vault.get("items", []), key=_sort_key)
     meta = vault.get("meta", {})
     lines = []
     label = meta.get("label") or "(unlabelled)"

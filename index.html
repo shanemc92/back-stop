@@ -1190,6 +1190,15 @@ textarea.field.blurred {
    allowed to flow onto a page of their own rather than forcing the last
    symbol to shrink or split. */
 .qr-note { break-before: page; page-break-before: always; }
+.qr-warn {
+    font-weight: 600;
+    line-height: 1.45;
+    border: 2px solid var(--bad);
+    color: var(--bad);
+    padding: 8px 10px;
+    margin-bottom: 12px;
+    max-width: 151mm;
+}
 .qr-frame { background: #fff; padding: 10px; display: inline-block; border: 1px solid var(--line); }
 .qr-frame svg { display: block; width: 100%; height: auto; max-width: 151mm; max-height: 151mm; }
 .qr-cap { margin-top: 8px; }
@@ -1222,6 +1231,14 @@ textarea.field.blurred {
     html[data-print="qr"] .qr-frame { border: none; padding: 0; }
     html[data-print="qr"] .qr-cap { font-size: 9pt; }
     html[data-print="qr"] .qr-note { font-size: 8.5pt; line-height: 1.5; }
+    /* Black on white with a heavy rule: the sheet may well be printed on a
+       mono laser, so the warning cannot rely on the red carrying through. */
+    html[data-print="qr"] .qr-warn {
+        font-size: 9.5pt;
+        color: #000;
+        border-color: #000;
+        border-width: 2pt;
+    }
 }
 </style>
 </head>
@@ -1555,7 +1572,7 @@ textarea.field.blurred {
 
 <footer class="footer">
     <span>back-stop</span>
-    <span class="ver" id="footVer">v1.0.4</span>
+    <span class="ver" id="footVer">v1.1.0</span>
     <span class="sep">&middot;</span>
     <span>MIT</span>
     <span class="sep">&middot;</span>
@@ -1577,7 +1594,7 @@ textarea.field.blurred {
 "use strict";
 
 /* ---------- app identity ---------- */
-const APP = { id: "back-stop", version: "1.0.4", schema: 1 };
+const APP = { id: "back-stop", version: "1.1.0", schema: 1 };
 
 /* ---------- dom helpers ---------- */
 const $  = s => document.querySelector(s);
@@ -2504,6 +2521,7 @@ async function adopt(file, raw) {
         site: String(i.site || ""), user: String(i.user || ""),
         codes: String(i.codes || ""), note: String(i.note || "")
     }));
+    sortItems();
 }
 
 async function buildFile() {
@@ -2629,6 +2647,21 @@ function render() {
     bumpIdle();
 }
 
+/* Keeps the list alphabetical by provider, then by account for a provider
+   used twice. localeCompare with numeric collation so provider-2 lands before
+   provider-10 rather than after it, and sensitivity "base" so case and accents
+   do not split names that read the same. Accounts with no provider yet go to
+   the end, where a blank line is less confusing than at the top. */
+function sortItems() {
+    state.items.sort((a, b) => {
+        const an = (a.site || "").trim(), bn = (b.site || "").trim();
+        if (!an !== !bn) return an ? -1 : 1;
+        return an.localeCompare(bn, undefined, { numeric: true, sensitivity: "base" })
+            || (a.user || "").localeCompare(b.user || "", undefined,
+                                            { numeric: true, sensitivity: "base" });
+    });
+}
+
 function codeCount(item) {
     return String(item.codes || "").split(/\n/).filter(x => x.trim()).length;
 }
@@ -2747,6 +2780,7 @@ function saveEditor() {
     if (!draft.site && !draft.user && !draft.codes) { closeEditor(); renderRows(); return; }
     if (editIdx >= 0 && state.items[editIdx]) state.items[editIdx] = draft;
     else state.items.push(draft);
+    sortItems();
     closeEditor();
     renderRows();
 }
@@ -2997,6 +3031,15 @@ async function printBackup() {
     const stamp = new Date().toISOString();
     chunks.forEach((text, i) => {
         const page = el("div", "qr-page");
+        if (chunks.length > 1) {
+            page.appendChild(el("div", "qr-warn",
+                "ALL " + chunks.length + " SHEETS ARE REQUIRED - KEEP THEM TOGETHER. " +
+                "This is sheet " + (i + 1) + ". Losing any one sheet loses every code in " +
+                "the vault, not a part of them, so do not split this set across locations. " +
+                "To hold a copy somewhere else, print a second full set of all " +
+                chunks.length 
+                + " sheets."));
+        }
         const frame = el("div", "qr-frame");
         let node;
         try { node = qrNode(text); }
