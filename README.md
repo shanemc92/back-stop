@@ -192,19 +192,7 @@ Output goes to stdout, and when that is redirected the script says on stderr
 that the result is now plaintext outside any encryption. It will not write a
 file for you.
 
-## The account list
 
-One line per account: provider, account, code count, edit, remove. Codes are
-not on the page at all - they exist in the DOM only while the edit dialog is
-open, which is both less to shoulder-surf and less for a screenshot to catch.
-
-The rows are laid out with CSS subgrid, so the provider column is measured
-across every row and the accounts, counts and buttons line up regardless of
-how long the provider names are. The column is capped at `fit-content(30%)`,
-so one very long provider ellipsises rather than swallowing the row. Below
-760px there is no room for four columns - giving the provider a share wide
-enough for the longest name leaves the account itself at about 30px - so the
-row becomes two lines and drops the shared columns entirely.
 
 ## What leaks, and what does not
 
@@ -241,55 +229,15 @@ produce. Codes themselves were never reachable that way: the code fields are
 removed from the print output outright rather than blurred, since a CSS blur
 leaves the characters selectable in a PDF text layer.
 
-## Verified in a browser
-
-Rendered each print path to PDF, rasterised the QR sheet and the key card at
-300 dpi, decoded both with zbar, and recovered the vault cold with nothing but
-those two decoded payloads - no file, no prior session. All codes came back
-byte-identical. The backup symbol still decoded at 200, 150, 100 and 75 dpi.
-An accidental print was confirmed to contain no codes and no account names, and
-the edit dialog leaves no plaintext in the DOM once closed.
-
-The page box is pinned with `@page { size: A4 portrait; margin: 12mm }` rather
-than inherited from the print dialog, so the artifacts are laid out against a
-known 186mm of printable width. Each QR symbol gets a whole page and the
-envelope reference notes get their own, and the symbol is sized
-`width: 100%` with both `max-width` and `max-height` at 151mm rather than a
-fixed size, so it scales down inside the page instead of overflowing. Width
-alone is not enough: a square symbol constrained only horizontally still spills
-downward on a short page, and an overflowing block is what makes an engine emit
-an extra page. 151mm is well short of the 186mm available on purpose, because
-the page also carries a masthead, heading, intro prose and caption. The densest
-symbol the tool emits is about 1.3mm a module at that size, many times what a
-phone camera resolves; the busiest page tested leaves roughly 100mm of vertical
-slack. The three print panels are also exempted from the template's blanket
-`.panel { break-inside: avoid }`, since they are multi-page by design and a
-panel told never to break that cannot fit is a common source of stray pages.
-
-Note that "pages per sheet" in the print dialog is applied by the browser after
-the page is composed, so no stylesheet can override it. If two symbols land on
-one physical sheet, that setting is 2-up and needs changing in the dialog.
-
-Each print path also sets its own document title, so a print-to-PDF lands as
-`back-stop-key-card-...`, `back-stop-encrypted-backup-...` or
-`back-stop-PLAINTEXT-CODES-...` with a timestamp, rather than three files all
-called `back-stop.pdf` overwriting one another. The title is restored as soon
-as printing finishes, so no tab sits there advertising what was printed.
-Printing to PDF still writes plaintext or key material to disk and is only for
-testing the layouts.
-
-This is still a render, not a printer. A real end-to-end test on paper with a
-phone camera has not been done.
-
 ## Known limits
 
 - PBKDF2 is GPU-friendly and the browser offers nothing stronger without a
   dependency, so a short passphrase will not survive an offline attack on the
   exported file. Six or more unrelated words.
-- The AES-GCM in `recover.py` is hand-written rather than audited. It passes
-  the NIST vectors and agrees with WebCrypto on real vaults, which is evidence
-  but not a review. It is a fallback for when the browser is gone, not the
-  everyday path.
+- The AES-GCM in `recover.py` is hand-written rather than an audited 
+  third-party library. It passesthe NIST vectors and agrees with WebCrypto 
+  on real vaults, which is evidencebut not a review. It is a fallback for when 
+  the browser is gone, not the everyday path.
 - Ten check bits will not catch every transcription error. A slip that passes
   the check still fails at the decrypt, with the generic message.
 - The key card decrypts the vault on its own. Store it apart from both the
@@ -297,19 +245,6 @@ phone camera has not been done.
 - Hosting this file anywhere means whoever controls that origin controls the
   code that touches your plaintext. Verify the hash of a hosted copy against
   your local one before entering real codes.
-
-## QR encoder
-
-Written for this tool rather than pulled in, since the CSP forbids remote
-scripts. Byte mode, error level M, versions 1 to 40. ECC block structure and
-alignment centres are the ISO/IEC 18004 tables.
-
-Verified against [segno](https://github.com/heuer/segno): all 40 versions match
-module for module on payloads that fill the symbol exactly. Output decodes with
-zbar across 52 payloads of varying length. Where padding differs from segno,
-segno appends a spurious zero codeword when the bit stream is already
-byte-aligned after the terminator; it sits past the terminator and decoders
-ignore it.
 
 ## Licence
 
