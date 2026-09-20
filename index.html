@@ -1555,7 +1555,7 @@ textarea.field.blurred {
 
 <footer class="footer">
     <span>back-stop</span>
-    <span class="ver" id="footVer">v1.0.3</span>
+    <span class="ver" id="footVer">v1.0.4</span>
     <span class="sep">&middot;</span>
     <span>MIT</span>
     <span class="sep">&middot;</span>
@@ -1577,7 +1577,7 @@ textarea.field.blurred {
 "use strict";
 
 /* ---------- app identity ---------- */
-const APP = { id: "back-stop", version: "1.0.3", schema: 1 };
+const APP = { id: "back-stop", version: "1.0.4", schema: 1 };
 
 /* ---------- dom helpers ---------- */
 const $  = s => document.querySelector(s);
@@ -2336,8 +2336,7 @@ const aad = () => tenc.encode(FORMAT);
    string that is very easy to get wrong, and a single slip fails as an opaque
    "wrong key". The card now uses Crockford base32 instead - one case, and no
    I L O U, with I and L folded to 1 and O to 0 on the way back in - followed by
-   two check characters so a typo is reported as a typo. Base64 keys are still
-   accepted on input so a card printed by 0.9.0 keeps working. */
+   two check characters so a typo is reported as a typo. */
 const C32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 const C32MAP = (() => {
     const m = Object.create(null);
@@ -2383,9 +2382,7 @@ async function parseKey(text) {
     const c = s.toUpperCase().replace(/[^0-9A-Z]/g, "")
         .replace(/[ILO]/g, ch => (ch === "O" ? "0" : "1"));
     let raw;
-    if (/[+/=]/.test(s) || c.length === 43 || c.length === 44) {
-        raw = unb64(s);                              /* card printed by 0.9.0 */
-    } else if (c.length === 54) {
+    if (c.length === 54) {
         raw = unb32(c.slice(0, 52));
         if (await keyCheck(raw) !== c.slice(52)) {
             throw new Error("that key has a typo in it, check it against the card a character at a time");

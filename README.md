@@ -1,7 +1,7 @@
 # back-stop
 
-A single-file browser tool for storing account recovery codes: a place to put the one-time
-codes websites give you to get back in when your MFA authenticator is gone. It
+A single-file browser tool for storing account recovery codes: the one-time
+codes a provider hands you to get back in when your authenticator is gone. It
 holds them encrypted, exports an encrypted file, and prints a QR backup and a
 key card for offline storage.
 
@@ -55,8 +55,6 @@ instead of transcribed.
 Changing the last of the 52 characters can leave the key unchanged: 52 base32
 characters carry 260 bits and the key is 256, so the final character has 4 bits
 of padding. Both forms decode to the same key and both unlock.
-
-Base64 keys printed by 0.9.0 are still accepted on input.
 
 ### Exported file
 

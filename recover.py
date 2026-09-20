@@ -201,9 +201,7 @@ def parse_key(text):
     c = re.sub(r"[^0-9A-Z]", "", s.upper())
     c = c.replace("I", "1").replace("L", "1").replace("O", "0")
 
-    if re.search(r"[+/=]", s) or len(c) in (43, 44):
-        raw = base64.b64decode(re.sub(r"\s+", "", s) + "===")   # 0.9.0 card
-    elif len(c) in (52, 54):
+    if len(c) in (52, 54):
         acc = bits = 0
         out = bytearray()
         for ch in c[:52]:
