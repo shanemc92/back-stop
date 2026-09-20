@@ -1,0 +1,16 @@
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+.idea/
+__pycache__/
+*.pyc
+
+# Never commit a vault, a backup, or anything printed. These are the
+# filenames back-stop and recover.py actually produce.
+*.json
+!package.json
+back-stop-*.pdf
+back-stop-*.txt
+scanned*.txt
+recovered*.txt

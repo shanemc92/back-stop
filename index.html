@@ -1,0 +1,3228 @@
+<!DOCTYPE html>
+<html lang="en" data-design="chamfer" data-mode="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%2032%2032%27%3E%3Cpath%20d%3D%27M16%203.2%2027%207.2v9.6c0%206.4-4.4%2010.6-11%2012.2-6.6-1.6-11-5.8-11-12.2V7.2z%27%20fill%3D%27none%27%20stroke%3D%27%235eead4%27%20stroke-width%3D%272.4%27%20stroke-linejoin%3D%27round%27/%3E%3Ccircle%20cx%3D%2716%27%20cy%3D%2714.2%27%20r%3D%272.9%27%20fill%3D%27%235eead4%27/%3E%3Cpath%20d%3D%27M16%2017.4v4.6%27%20fill%3D%27none%27%20stroke%3D%27%235eead4%27%20stroke-width%3D%272.4%27%20stroke-linecap%3D%27round%27/%3E%3C/svg%3E">
+<title>back-stop</title>
+
+<style>
+
+/* ============================================================
+   tool-name
+
+   One stylesheet, three independent axes:
+
+     data-design  chamfer | console | circuit | contour
+                  shape language, surface hue family, backdrop
+                  texture, ornament. This is the "look".
+
+     data-mode    dark | dusk | sepia | light
+                  the lightness ramp only. Every design supports
+                  every mode.
+
+     --ah / --ac  accent hue and chroma, set on <html> by the
+                  accent picker. Accent lightness comes from the
+                  mode, so a hue can never go invisible against
+                  the surface it sits on.
+
+   That is 16 palettes from eight small blocks, and no component
+   rule anywhere below knows which one is active.
+
+   Geometry is deliberately mode- and design-independent: every
+   design shares the same bar height, panel padding, control
+   padding, type sizes and grid. Designs may only change colour,
+   radius, clip-path, borders and absolutely-positioned ornament,
+   so switching design never reflows the page.
+
+   Sans for chrome and prose, mono for data. No webfonts, no
+   network calls, no build step.
+   ============================================================ */
+
+:root {
+    --wrap: 1080px;   /* content column */
+    --read: 760px;    /* prose column */
+    --ui:   system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+    /* Shared geometry. Do not re-declare these in a design block:
+       they are what keeps a design switch from moving content. */
+    --bar:      52px;   /* top bar height */
+    --pad:      18px;   /* panel padding */
+    --gap:      14px;   /* grid gap */
+    --ctl:      30px;   /* icon button / logo tile box */
+
+    /* Accent defaults, overwritten inline by the picker. */
+    --ah: 178;
+    --ac: 68%;
+}
+
+/* ============================================================
+   Designs: hue family per mode group, shape, ornament switches
+   ============================================================ */
+
+/* Cut corners, instrument grid. The house design. */
+html[data-design="chamfer"] {
+    --hd: 218; --sd: 20%;    /* dark + dusk surfaces */
+    --hw: 36;  --sw: 30%;    /* sepia surfaces */
+    --hl: 216; --sl: 14%;    /* light surfaces */
+    --radius: 0px;
+    --radius-sm: 4px;
+    --notch: 16px;
+    --notch-sm: 8px;
+}
+
+/* Square, graphite, hairline scan lines. The terminal remnant. */
+html[data-design="console"] {
+    --hd: 205; --sd: 9%;
+    --hw: 42;  --sw: 20%;
+    --hl: 210; --sl: 7%;
+    --radius: 0px;
+    --radius-sm: 0px;
+    --notch: 0px;
+    --notch-sm: 0px;
+}
+
+/* Board colours, via grid, one constant plating. */
+html[data-design="circuit"] {
+    --hd: 152; --sd: 38%;
+    --hw: 40;  --sw: 34%;
+    --hl: 150; --sl: 8%;
+    --radius: 3px;
+    --radius-sm: 2px;
+    --notch: 0px;
+    --notch-sm: 0px;
+}
+
+/* Soft radii, accent wash, no texture. The calm one. */
+html[data-design="contour"] {
+    --hd: 258; --sd: 22%;
+    --hw: 30;  --sw: 26%;
+    --hl: 250; --sl: 13%;
+    --radius: 14px;
+    --radius-sm: 9px;
+    --notch: 0px;
+    --notch-sm: 0px;
+}
+
+/* ============================================================
+   Modes: lightness ramp, accent band, status colours
+
+   --l-*  surface and text lightness stops
+   --al   accent lightness, chosen so any hue clears its surface
+   --ink  text that sits on top of the accent
+   ============================================================ */
+
+html[data-mode="dark"] {
+    color-scheme: dark;
+    --h: var(--hd); --s: var(--sd);
+    --l-bg: 7%;   --l-card: 10.5%; --l-sunken: 8.5%; --l-raised: 15%;
+    --l-line: 23%; --l-soft: 16%;
+    --l-fg: 93%;  --l-dim: 67%;   --l-faint: 54%;
+    --al: 66%; --soft: 0.15;
+    --ink: hsl(var(--ah) 60% 8%);
+    --sh: rgba(0, 0, 0, 0.55);
+    --shadow-lift: 0 20px 50px -20px rgba(0, 0, 0, 0.85);
+    --ok:   hsl(146 58% 55%);
+    --warn: hsl(41 86% 60%);
+    --bad:  hsl(5 85% 66%);
+    --ok-ink: hsl(146 60% 8%);
+    --copper: #d3a24a;
+}
+
+/* "Not as dark": same palette lifted off black, for rooms with
+   some light in them and for long sessions. */
+html[data-mode="dusk"] {
+    color-scheme: dark;
+    --h: var(--hd); --s: var(--sd);
+    --l-bg: 16%;  --l-card: 20%;  --l-sunken: 17.5%; --l-raised: 25%;
+    --l-line: 32%; --l-soft: 25%;
+    --l-fg: 95%;  --l-dim: 74%;   --l-faint: 62%;
+    --al: 68%; --soft: 0.17;
+    --ink: hsl(var(--ah) 60% 10%);
+    --sh: rgba(0, 0, 0, 0.42);
+    --shadow-lift: 0 20px 50px -20px rgba(0, 0, 0, 0.7);
+    --ok:   hsl(146 55% 58%);
+    --warn: hsl(41 82% 62%);
+    --bad:  hsl(5 82% 68%);
+    --ok-ink: hsl(146 60% 9%);
+    --copper: #dcae5c;
+}
+
+/* Warm paper. Bright but low glare. */
+html[data-mode="sepia"] {
+    color-scheme: light;
+    --h: var(--hw); --s: var(--sw);
+    --l-bg: 87%;  --l-card: 95%;  --l-sunken: 91%; --l-raised: 98%;
+    --l-line: 72%; --l-soft: 82%;
+    --l-fg: 16%;  --l-dim: 36%;   --l-faint: 45%;
+    --al: 38%; --soft: 0.11;
+    --ink: hsl(var(--ah) 40% 98%);
+    --sh: rgba(70, 52, 18, 0.16);
+    --shadow-lift: 0 20px 50px -22px rgba(70, 52, 18, 0.3);
+    --ok:   hsl(150 52% 30%);
+    --warn: hsl(32 78% 34%);
+    --bad:  hsl(2 68% 44%);
+    --ok-ink: hsl(40 40% 97%);
+    --copper: #96681a;
+}
+
+/* Cool white. The print-adjacent one. */
+html[data-mode="light"] {
+    color-scheme: light;
+    --h: var(--hl); --s: var(--sl);
+    --l-bg: 93%;  --l-card: 100%; --l-sunken: 96.5%; --l-raised: 99%;
+    --l-line: 84%; --l-soft: 90%;
+    --l-fg: 12%;  --l-dim: 37%;   --l-faint: 47%;
+    --al: 39%; --soft: 0.1;
+    --ink: hsl(var(--ah) 35% 99%);
+    --sh: rgba(16, 24, 40, 0.14);
+    --shadow-lift: 0 20px 50px -22px rgba(16, 24, 40, 0.26);
+    --ok:   hsl(150 54% 29%);
+    --warn: hsl(32 80% 33%);
+    --bad:  hsl(2 70% 45%);
+    --ok-ink: hsl(150 30% 99%);
+    --copper: #8a6410;
+}
+
+/* ============================================================
+   The token layer. Everything below this point uses these and
+   nothing else. A literal colour in a component rule is a bug:
+   it will break in at least one of the sixteen combinations.
+   ============================================================ */
+html {
+    --bg:        hsl(var(--h) var(--s) var(--l-bg));
+    --card:      hsl(var(--h) var(--s) var(--l-card));
+    --sunken:    hsl(var(--h) var(--s) var(--l-sunken));
+    --raised:    hsl(var(--h) var(--s) var(--l-raised));
+    --line:      hsl(var(--h) calc(var(--s) * 0.85) var(--l-line));
+    --line-soft: hsl(var(--h) calc(var(--s) * 0.85) var(--l-soft));
+    --fg:        hsl(var(--h) calc(var(--s) * 0.30) var(--l-fg));
+    --fg-dim:    hsl(var(--h) calc(var(--s) * 0.35) var(--l-dim));
+    --fg-faint:  hsl(var(--h) calc(var(--s) * 0.35) var(--l-faint));
+
+    --accent:      hsl(var(--ah) var(--ac) var(--al));
+    --accent-soft: hsl(var(--ah) var(--ac) var(--al) / var(--soft));
+    --accent-ink:  var(--ink);
+
+    --toggle-on:  var(--ok);
+    --toggle-ink: var(--ok-ink);
+
+    --shadow: 0 1px 2px var(--sh);
+}
+/* Contour lifts its surfaces instead of outlining them. */
+html[data-design="contour"] {
+    --shadow: 0 1px 2px var(--sh), 0 18px 38px -26px var(--sh);
+}
+
+/* ============================================================
+   Base
+   ============================================================ */
+* { box-sizing: border-box; }
+/* Mobile WebKit/Chrome paint a translucent grey-blue overlay on tap by
+   default, gone by the time :active/:hover settle. Against a plain button
+   that reads as a faint flash; against a solid --bad red button (Lock, Print
+   in the clear, Remove) it reads as the button changing colour on click. Not
+   present in desktop testing, which is why it did not show up earlier. */
+* { -webkit-tap-highlight-color: transparent; }
+/* Chromium/WebKit synthesise a brief :hover match from a tap on touch
+   devices, with no mouse-leave to clear it, so a border or colour tied to
+   :hover can flash or stick after a tap that was never a real hover. Every
+   :hover rule below is gated to devices that can actually hover, so a tap
+   only ever produces the base and :active styles. */
+html { scrollbar-gutter: stable; }
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--ui);
+    font-size: 13.5px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Backdrop. One layer, four treatments, all built from tokens and
+   all pinned behind the content, so none of them can push a pixel. */
+body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+}
+/* Instrument grid: a worksheet under the readout. */
+html[data-design="chamfer"] body::before {
+    background-image:
+        linear-gradient(var(--line-soft) 1px, transparent 1px),
+        linear-gradient(90deg, var(--line-soft) 1px, transparent 1px);
+    background-size: 28px 28px;
+    opacity: 0.4;
+}
+/* Scan rules: horizontal hairlines, close enough to read as a screen. */
+html[data-design="console"] body::before {
+    background-image: repeating-linear-gradient(180deg,
+        var(--line-soft) 0 1px, transparent 1px 6px);
+    opacity: 0.32;
+}
+/* Via holes: a plated ring around a hole the colour of the board. */
+html[data-design="circuit"] body::before {
+    background-image:
+        radial-gradient(circle, var(--line) 1.4px, transparent 1.6px),
+        radial-gradient(circle, var(--bg) 0.7px, transparent 0.9px);
+    background-size: 30px 30px, 30px 30px;
+    opacity: 0.55;
+}
+/* A single soft wash in the current accent, and nothing else. */
+html[data-design="contour"] body::before {
+    background-image: radial-gradient(880px 400px at 50% -190px,
+        var(--accent-soft), transparent 72%);
+    opacity: 1;
+}
+.topbar, .page, .footer, .notification { position: relative; z-index: 1; }
+
+h1, h2, h3 { margin: 0; font-weight: 600; }
+::selection { background: var(--accent); color: var(--accent-ink); }
+::placeholder { color: var(--fg-faint); opacity: 1; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+/* The chamfer. A clip-path, so it costs no space and the same box
+   is still the same box in every other design. */
+.chamfer, .chamfer-sm { border-radius: var(--radius); }
+html[data-design="chamfer"] .chamfer {
+    border-radius: 0;
+    clip-path: polygon(var(--notch) 0, 100% 0, 100% 100%, 0 100%, 0 var(--notch));
+}
+html[data-design="chamfer"] .chamfer-sm {
+    border-radius: 0;
+    clip-path: polygon(var(--notch-sm) 0, 100% 0, 100% 100%, 0 100%, 0 var(--notch-sm));
+}
+@media print {
+    .chamfer, .chamfer-sm { clip-path: none !important; border-radius: 3px; }
+}
+
+/* ============================================================
+   Top bar
+   ============================================================ */
+.topbar {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    background: var(--card);
+    border-bottom: 1px solid var(--line);
+}
+/* Circuit only: the gold contact fingers of a card-edge connector,
+   kept to a hairline so it reads as an edge and not a stripe. */
+html[data-design="circuit"] .topbar::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: -2px;
+    height: 2px;
+    background: repeating-linear-gradient(90deg,
+        var(--copper) 0, var(--copper) 5px,
+        transparent 5px, transparent 8px);
+    opacity: 0.7;
+}
+/* Console only: the bar sits on a second hairline, like a rule under
+   a header in a terminal UI. Drawn as a shadow, so it takes no space. */
+html[data-design="console"] .topbar {
+    box-shadow: 0 3px 0 -1px var(--line-soft);
+}
+.topbar-inner {
+    max-width: var(--wrap);
+    margin: 0 auto;
+    padding: 0 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-height: var(--bar);
+}
+
+/* Terminal remnant: the name stays mono. No version here, it lives
+   in the footer where it does not compete with the mark. */
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--font);
+    font-size: 14px;
+    white-space: nowrap;
+}
+.brand .name { color: var(--fg); font-weight: 500; letter-spacing: 0.2px; }
+
+/* A lit indicator rather than a decoration: it breathes to say the tab
+   is alive, and its title is where the "runs local" claim actually
+   lives. Keep the claim true or remove the dot. */
+.pulse {
+    flex: 0 0 auto;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--ok);
+    box-shadow: 0 0 5px var(--ok);
+    animation: breathe 2.6s ease-in-out infinite;
+}
+@keyframes breathe {
+    0%, 100% { opacity: 0.3; }
+    50%      { opacity: 1; }
+}
+
+/* Logo slot. One mark, every design: only the frame around it changes,
+   and the box is a fixed 30px square in all four so the bar never
+   shifts. Swap the SVG for the tool's own mark, drawn with
+   currentColor on a 32x32 viewBox so it follows the accent. */
+.logo {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--ctl);
+    height: var(--ctl);
+    padding: 5px;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    animation: logo-in 0.5s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+.logo svg, .logo img { display: block; width: 100%; height: 100%; }
+.logo img { object-fit: contain; }
+html[data-design="chamfer"] .logo {
+    border-radius: 0;
+    clip-path: polygon(8px 0, 100% 0, 100% 100%, 0 100%, 0 8px);
+}
+html[data-design="circuit"] .logo { border-color: var(--copper); }
+html[data-design="contour"] .logo { border-radius: 50%; }
+@keyframes logo-in {
+    from { opacity: 0; transform: scale(0.75); }
+    to   { opacity: 1; transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) { .logo { animation: none; } }
+
+/* ---------- Tabs ---------- */
+.tabs { display: flex; gap: 2px; margin-left: auto; overflow-x: auto; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+    position: relative;
+    font: inherit;
+    font-size: 13px;
+    color: var(--fg-dim);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    padding: 6px 13px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color 0.15s, background 0.15s;
+}
+@media (hover: hover) { .tab:hover { color: var(--fg); background: var(--sunken); } }
+.tab[aria-selected="true"] { color: var(--accent); }
+/* Underline for the two hard-edged designs, drawn on a pseudo element
+   so the selected tab is exactly as tall as the others. */
+.tab::after {
+    content: "";
+    position: absolute;
+    left: 13px; right: 13px; bottom: -1px;
+    height: 2px;
+    background: var(--accent);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.18s ease;
+}
+.tab[aria-selected="true"]::after { transform: scaleX(1); }
+html[data-design="console"] .tab[aria-selected="true"],
+html[data-design="contour"] .tab[aria-selected="true"] { background: var(--accent-soft); }
+html[data-design="console"] .tab::after,
+html[data-design="contour"] .tab::after { display: none; }
+html[data-design="contour"] .tab { border-radius: 999px; }
+html[data-design="circuit"] .tab[aria-selected="true"]::after { background: var(--copper); }
+
+/* ---------- Menus: design, mode, accent ---------- */
+.bar-tools { display: flex; align-items: center; gap: 2px; flex: 0 0 auto; }
+.menu-wrap { position: relative; flex: 0 0 auto; }
+.icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--ctl);
+    height: var(--ctl);
+    padding: 0;
+    color: var(--fg-dim);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+@media (hover: hover) { .icon-btn:hover { color: var(--accent); background: var(--sunken); border-color: var(--line); } }
+.icon-btn[aria-expanded="true"] { color: var(--accent); background: var(--accent-soft); border-color: var(--line); }
+.icon-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; }
+
+.menu {
+    position: absolute;
+    top: 36px;
+    right: 0;
+    z-index: 60;
+    min-width: 208px;
+    padding: 6px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-lift);
+}
+.menu[hidden] { display: none; }
+.menu-title {
+    font-family: var(--font);
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--fg-faint);
+    padding: 4px 8px 6px;
+}
+.opt {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    font: inherit;
+    font-size: 13px;
+    text-align: left;
+    color: var(--fg);
+    background: transparent;
+    border: 0;
+    border-radius: 6px;
+    padding: 7px 9px;
+    cursor: pointer;
+}
+@media (hover: hover) { .opt:hover { background: var(--sunken); } }
+.opt[aria-checked="true"] { color: var(--accent); }
+.opt .lbl { display: flex; flex-direction: column; line-height: 1.3; }
+.opt .lbl small { color: var(--fg-faint); font-size: 11px; }
+.opt .tick { margin-left: auto; font-family: var(--font); font-size: 12px; opacity: 0; }
+.opt[aria-checked="true"] .tick { opacity: 1; }
+
+/* Design swatch: a 16px sample of that design's actual shape and
+   backdrop, so the menu shows what it is rather than naming it. */
+.dsw {
+    flex: 0 0 auto;
+    width: 16px; height: 16px;
+    background: var(--sunken);
+    border: 1px solid var(--fg-faint);
+}
+.opt[data-set="chamfer"] .dsw { clip-path: polygon(6px 0, 100% 0, 100% 100%, 0 100%, 0 6px); }
+.opt[data-set="console"] .dsw {
+    background-image: repeating-linear-gradient(180deg, var(--fg-faint) 0 1px, transparent 1px 4px);
+}
+.opt[data-set="circuit"] .dsw {
+    border-radius: 2px;
+    background-image: radial-gradient(circle, var(--fg-faint) 1.2px, transparent 1.4px);
+    background-size: 8px 8px;
+    background-position: 1px 1px;
+}
+.opt[data-set="contour"] .dsw { border-radius: 50%; }
+
+/* Mode swatch: the ramp itself, ink over paper. */
+.msw {
+    flex: 0 0 auto;
+    width: 16px; height: 16px;
+    border: 1px solid var(--fg-faint);
+    border-radius: 2px;
+}
+.opt[data-set="dark"]  .msw { background: linear-gradient(135deg, hsl(215 20% 46%) 50%, hsl(215 20% 7%) 50%); }
+.opt[data-set="dusk"]  .msw { background: linear-gradient(135deg, hsl(215 18% 62%) 50%, hsl(215 18% 20%) 50%); }
+.opt[data-set="sepia"] .msw { background: linear-gradient(135deg, hsl(36 28% 28%) 50%, hsl(36 30% 92%) 50%); }
+.opt[data-set="light"] .msw { background: linear-gradient(135deg, hsl(215 14% 30%) 50%, hsl(215 14% 100%) 50%); }
+
+/* Accent picker. The swatches are painted by the script using the
+   live formula, so each one previews the hue as the current mode
+   will actually render it. */
+.swatches {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    padding: 4px 8px 8px;
+}
+.swatch {
+    height: 26px;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+}
+@media (hover: hover) { .swatch:hover { transform: translateY(-1px); } }
+.swatch[aria-checked="true"] { box-shadow: 0 0 0 2px var(--card), 0 0 0 3px var(--fg); }
+/* The wheel replaces the browser's colour input. Hue is the angle and
+   chroma is the radius, which is the whole of what the accent takes
+   from a pick: lightness is the mode's job. The rim is drawn by the
+   script at the lightness the active mode will actually render, and
+   the middle fades into the surface underneath, so the control is a
+   preview of the palette rather than a generic spectrum. */
+.wheel-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 9px;
+    padding: 10px 8px 6px;
+    border-top: 1px solid var(--line-soft);
+}
+.wheel {
+    position: relative;
+    width: 116px;
+    height: 116px;
+    border-radius: 50%;
+    cursor: crosshair;
+    touch-action: none;
+    box-shadow: 0 0 0 1px var(--line);
+}
+.wheel::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: radial-gradient(circle at 50% 50%, var(--card) 5%, transparent 64%);
+    pointer-events: none;
+}
+.wheel-dot {
+    position: absolute;
+    width: 13px; height: 13px;
+    margin: -6.5px 0 0 -6.5px;
+    border-radius: 50%;
+    border: 2px solid var(--card);
+    box-shadow: 0 0 0 1px var(--fg);
+    pointer-events: none;
+}
+.accent-foot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    font-size: 12px;
+    color: var(--fg-dim);
+}
+.accent-foot .now { font-family: var(--font); color: var(--fg); }
+/* Kept alongside the wheel for the one case the wheel is bad at:
+   matching a brand colour exactly. */
+.hexin {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-family: var(--font);
+    color: var(--fg-faint);
+}
+.hexin .field { width: 66px; padding: 4px 6px; font-size: 11.5px; }
+
+/* ============================================================
+   Page
+   ============================================================ */
+.page { width: 100%; max-width: var(--wrap); margin: 0 auto; padding: 22px 20px 34px; flex: 1 0 auto; }
+section[hidden] { display: none; }
+
+/* Terminal remnant: a mono status line under the bar. */
+.statusline {
+    font-family: var(--font);
+    font-size: 12px;
+    color: var(--fg-faint);
+    margin-bottom: 18px;
+}
+.statusline b { color: var(--fg-dim); font-weight: 500; }
+.statusline .chev { color: var(--accent); }
+
+.panel {
+    position: relative;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: var(--pad);
+    margin-bottom: 16px;
+}
+html[data-design="chamfer"] .panel {
+    border-radius: 0;
+    clip-path: polygon(var(--notch) 0, 100% 0, 100% 100%, 0 100%, 0 var(--notch));
+}
+/* Console: an accent rule down the binding edge. Absolute, so the
+   18px of padding is still 18px. */
+html[data-design="console"] .panel::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 2px;
+    background: var(--accent);
+    opacity: 0.55;
+}
+/* Circuit: a fiducial in the corner, the way a board marks its own
+   orientation. Sits in the padding, never in the content. */
+html[data-design="circuit"] .panel::before {
+    content: "";
+    position: absolute;
+    top: 6px; right: 6px;
+    width: 7px; height: 7px;
+    border: 1.5px solid var(--copper);
+    border-radius: 50%;
+    opacity: 0.65;
+}
+@media print { .panel { clip-path: none !important; } .panel::before { display: none; } }
+
+.panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--gap);
+    margin-bottom: var(--gap);
+}
+.panel-head h2 { font-size: 14.5px; }
+.panel-head .sub {
+    font-family: var(--font);
+    font-size: 11px;
+    color: var(--fg-faint);
+}
+.panel-head .sub::before { content: "["; }
+.panel-head .sub::after  { content: "]"; }
+.prose { max-width: var(--read); color: var(--fg-dim); text-align: left; }
+/* About is body copy in a full-width panel, so it is not held to the
+   reading measure the narrow in-panel notes use. */
+#pane-about .prose { max-width: none; }
+
+/* ============================================================
+   Controls
+   ============================================================ */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 8px 14px;
+    font: inherit;
+    font-size: 13px;
+    color: var(--fg);
+    background: var(--raised);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+@media (hover: hover) { .btn:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); } }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: 0.5; cursor: default; }
+@media (hover: hover) { .btn:disabled:hover { color: var(--fg); border-color: var(--line); background: var(--raised); } }
+
+.btn-primary {
+    color: var(--accent-ink);
+    background: var(--accent);
+    border-color: var(--accent);
+}
+@media (hover: hover) { .btn-primary:hover { color: var(--accent-ink); background: var(--accent); filter: brightness(1.08); } }
+html[data-design="chamfer"] .btn-primary {
+    border-radius: 0;
+    clip-path: polygon(var(--notch-sm) 0, 100% 0, 100% 100%, 0 100%, 0 var(--notch-sm));
+}
+html[data-design="contour"] .btn, html[data-design="contour"] .btn-primary { border-radius: 999px; }
+/* Border and fill come from the base .btn rule unchanged, same as every
+   other button - only the label colour marks these as destructive. --bad
+   and --warn are both contrast-checked against --card in all four modes
+   (>=4.5:1, WCAG AA) so this holds across the full theme matrix, not just
+   dark mode. */
+.btn-danger { color: var(--bad); }
+@media (hover: hover) { .btn-danger:hover { color: var(--bad); border-color: var(--bad); background: var(--sunken); } }
+.btn-warn { color: var(--warn); }
+@media (hover: hover) { .btn-warn:hover { color: var(--warn); border-color: var(--warn); background: var(--sunken); } }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+.btn-ghost { background: transparent; border-color: transparent; color: var(--fg-dim); }
+@media (hover: hover) { .btn-ghost:hover { background: var(--sunken); border-color: var(--line); } }
+
+/* ---------- Inputs: mono, because they hold data ---------- */
+.field {
+    width: 100%;
+    font-family: var(--font);
+    font-size: 12.5px;
+    color: var(--fg);
+    background: var(--sunken);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+    outline: none;
+    transition: border-color 0.15s, background 0.15s;
+}
+@media (hover: hover) { .field:hover { border-color: var(--fg-faint); } }
+.field:focus { border-color: var(--accent); background: var(--card); }
+textarea.field { line-height: 1.6; resize: vertical; }
+select.field { cursor: pointer; }
+
+label.f {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--fg-dim);
+}
+
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: var(--gap); }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.spacer { flex: 1; }
+
+/* ---------- Toggles ---------- */
+.toggle-group { display: flex; flex-direction: column; gap: 12px; }
+.toggle-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 30px; }
+.toggle-label { font-size: 13px; color: var(--fg); }
+
+.toggle-switch {
+    position: relative;
+    flex: 0 0 auto;
+    width: 40px;
+    height: 22px;
+    border-radius: 11px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    cursor: pointer;
+    transition: background 0.18s, border-color 0.18s;
+}
+.toggle-switch::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--fg-faint);
+    transition: transform 0.18s, background 0.18s;
+}
+.toggle-switch.active { background: var(--toggle-on); border-color: var(--toggle-on); }
+.toggle-switch.active::after { transform: translateX(18px); background: var(--toggle-ink); }
+
+/* ---------- Drop zone ---------- */
+.drop {
+    border: 1px dashed var(--line);
+    border-radius: var(--radius);
+    padding: 24px 14px;
+    text-align: center;
+    color: var(--fg-dim);
+    background: var(--sunken);
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+html[data-design="chamfer"] .drop {
+    border-radius: 0;
+    clip-path: polygon(var(--notch) 0, 100% 0, 100% 100%, 0 100%, 0 var(--notch));
+}
+.drop.over { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+@media (hover: hover) { .drop:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); } }
+.drop b { display: block; margin-bottom: 2px; color: var(--fg); font-weight: 500; }
+@media (hover: hover) { .drop:hover b { color: var(--accent); } }
+@media print { .drop { clip-path: none !important; } }
+
+/* ---------- Data text ---------- */
+pre {
+    margin: 0;
+    padding: 12px;
+    max-height: 340px;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: var(--font);
+    font-size: 12.5px;
+    line-height: 1.6;
+    background: var(--sunken);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+}
+code { font-family: var(--font); font-size: 12px; }
+mark { background: var(--accent-soft); color: var(--accent); border-radius: 3px; padding: 1px 3px; }
+.log { font-family: var(--font); font-size: 12px; color: var(--fg-dim); }
+.log .ok { color: var(--ok); } .log .warn { color: var(--warn); }
+.log .bad { color: var(--bad); } .log .a { color: var(--accent); }
+.note { font-size: 12px; line-height: 1.6; color: var(--fg-dim); }
+.note code { color: var(--accent); }
+
+.pill {
+    display: inline-flex;
+    align-items: center;
+    font-family: var(--font);
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    border: 1px solid var(--line);
+    color: var(--fg-dim);
+}
+.pill.ok { color: var(--ok); border-color: var(--ok); }
+.pill.warn { color: var(--warn); border-color: var(--warn); }
+.pill.bad { color: var(--bad); border-color: var(--bad); }
+
+/* ---------- Table ---------- */
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th {
+    text-align: left;
+    padding: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--fg-dim);
+    border-bottom: 1px solid var(--line);
+}
+/* Console: column heads read as a header row in a log, not a web table. */
+html[data-design="console"] th {
+    font-family: var(--font);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--fg-faint);
+}
+td { padding: 6px 8px; border-bottom: 1px solid var(--line-soft); vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+@media (hover: hover) { table tr:hover td { background: var(--sunken); } }
+td .field { padding: 5px 8px; }
+.empty {
+    padding: 28px;
+    text-align: center;
+    color: var(--fg-dim);
+    border: 1px dashed var(--line);
+    border-radius: var(--radius-sm);
+}
+
+/* ============================================================
+   Footer: where the version lives
+   ============================================================ */
+.footer {
+    width: 100%;
+    max-width: var(--wrap);
+    margin: 0 auto;
+    padding: 12px 20px 34px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-family: var(--font);
+    font-size: 11.5px;
+    color: var(--fg-faint);
+    border-top: 1px solid var(--line-soft);
+}
+.footer .sep { opacity: 0.5; }
+.footer .ver { color: var(--fg-dim); }
+.footer .right { margin-left: auto; }
+
+/* ============================================================
+   Notification
+   ============================================================ */
+.notification {
+    position: fixed;
+    left: 20px;
+    bottom: 20px;
+    z-index: 300;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 14px;
+    font-family: var(--font);
+    font-size: 12.5px;
+    color: var(--fg);
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-left: 2px solid var(--accent);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-lift);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-6px);
+    transition: opacity 0.2s, transform 0.2s;
+}
+.notification::before { content: ">"; color: var(--accent); }
+.notification.show { opacity: 1; transform: translateX(0); }
+.notification.error { border-left-color: var(--bad); }
+.notification.error::before { content: "!"; color: var(--bad); }
+
+/* The toast follows the design like every other surface: it is the one
+   piece of chrome that appears over content, so a rounded pill floating
+   above a hard-edged page is exactly where the seam would show. It is
+   also the one element whose width is free to move, since it is fixed
+   to the corner and nothing reflows around it. */
+html[data-design="chamfer"] .notification {
+    border-radius: 0;
+    clip-path: polygon(var(--notch-sm) 0, 100% 0, 100% 100%, 0 100%, 0 var(--notch-sm));
+    /* the clip eats the left border, so the accent edge is redrawn inside it */
+    border-left-width: 1px;
+    box-shadow: inset 2px 0 0 var(--accent), var(--shadow-lift);
+}
+html[data-design="chamfer"] .notification.error {
+    box-shadow: inset 2px 0 0 var(--bad), var(--shadow-lift);
+}
+html[data-design="console"] .notification {
+    border-radius: 0;
+    border-left-width: 3px;
+}
+html[data-design="circuit"] .notification {
+    border-left-color: var(--copper);
+}
+html[data-design="circuit"] .notification::before { color: var(--copper); }
+html[data-design="circuit"] .notification.error { border-left-color: var(--bad); }
+/* Contour has no prompt chevron anywhere else, so it gets a lit dot
+   instead: same 1ch of space, no reflow against the other designs. */
+html[data-design="contour"] .notification {
+    border-radius: 999px;
+    padding: 9px 16px;
+    border-left-width: 1px;
+    border-left-color: var(--line);
+}
+html[data-design="contour"] .notification::before {
+    content: "";
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+}
+html[data-design="contour"] .notification.error::before { background: var(--bad); }
+@media print { .notification { clip-path: none !important; } }
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+@media (max-width: 760px) {
+    .topbar-inner { flex-wrap: wrap; gap: 10px; padding: 8px 14px; }
+    .tabs { order: 3; width: 100%; margin-left: 0; }
+    .bar-tools { margin-left: auto; }
+    .page { padding: 16px 14px 28px; }
+    .footer { padding: 12px 14px 28px; }
+    .panel { padding: 14px; }
+    .grid { grid-template-columns: 1fr; }
+    .menu { min-width: 190px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+    }
+}
+
+/* ============================================================
+   Print: one light palette for every design and mode
+   ============================================================ */
+/* Pinned so the artifacts are laid out against a known box instead of
+   whatever the print dialog defaults to. 12mm leaves 186mm of printable
+   width on A4, which the 168mm symbol clears comfortably. */
+@page {
+    size: A4 portrait;
+    margin: 12mm;
+}
+
+@media print {
+    html, html[data-mode="dark"], html[data-mode="dusk"],
+    html[data-mode="sepia"], html[data-mode="light"] {
+        color-scheme: light;
+        --bg: #ffffff; --card: #ffffff; --sunken: #fafafa; --raised: #ffffff;
+        --line: #999999; --line-soft: #cccccc;
+        --fg: #111111; --fg-dim: #555555; --fg-faint: #777777;
+        --accent: #333333; --accent-soft: transparent; --accent-ink: #ffffff;
+        --copper: #555555;
+        --shadow: none; --shadow-lift: none;
+    }
+    body::before { display: none !important; }
+    body { font-size: 11pt; }
+    .tabs, .bar-tools, .drop, .notification, .btn, .noprint { display: none !important; }
+    /* The bar survives as a masthead so the logo and name land on the page. */
+    .topbar { position: static; background: none; border-bottom: 1px solid #999; box-shadow: none; }
+    .topbar::after { display: none !important; }
+    .topbar-inner { max-width: none; padding: 0 0 8px; min-height: 0; }
+    .logo { color: #111; background: none; }
+    .page { max-width: none; padding: 0; }
+    .panel { border: none; padding: 0; margin-bottom: 18px; break-inside: avoid; page-break-inside: avoid; }
+    .footer { max-width: none; padding: 10px 0 0; }
+    section[hidden] { display: block !important; }
+    a[href]::after { content: " (" attr(href) ")"; font-size: 9pt; color: #555; }
+}
+
+/* ---------- back-stop ---------- */
+/* Print-only, so it is display:none on screen and unhidden by the print
+   block above. The hidden attribute alone would not survive that block. */
+#printNotice { display: none; }
+#printNotice p { max-width: 120mm; }
+
+textarea.field.blurred {
+    filter: blur(6px);
+    -webkit-filter: blur(6px);
+    user-select: none;
+    -webkit-user-select: none;
+}
+#cardKey {
+    font-size: 15px;
+    line-height: 2.1;
+    letter-spacing: 0.06em;
+    word-break: break-all;
+    border: 1px solid var(--line);
+    padding: 12px;
+}
+
+/* Condensed account list. One line per account, no code fields on the page at
+   all: codes exist in the DOM only while the edit dialog is open, which shrinks
+   both the shoulder-surfing surface and anything a screenshot can catch. */
+.acct {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--sunken);
+    margin-bottom: 6px;
+}
+@media (hover: hover) { .acct:hover { border-color: var(--accent); } }
+.acct-site { font-weight: 600; flex: 0 0 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 40%; }
+.acct-user { color: var(--fg-dim); font-size: 13px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acct-count { margin-left: auto; font-size: 12px; color: var(--fg-dim); white-space: nowrap; }
+/* --danger is not a token in this theme; the undefined var was silently
+   falling back to a hardcoded red that ignored the mode. --bad is the
+   real token and is contrast-checked in all four modes. */
+.acct-count.zero { color: var(--bad); }
+
+/* The flex row above sizes the provider to its own text, so every account
+   started at a different x. Subgrid hands each row the SAME column widths,
+   measured across all of them, so the provider column is as wide as the
+   longest name and the accounts, counts and buttons all line up. The flex
+   rules stay as the fallback.
+
+   fit-content(30%) caps that column: it sizes to the longest name normally,
+   but one very long provider cannot swallow the row - it ellipsises instead. */
+@supports (grid-template-columns: subgrid) {
+    #rows {
+        display: grid;
+        grid-template-columns: fit-content(30%) minmax(0, 1fr) max-content max-content;
+        row-gap: 6px;
+    }
+    .acct {
+        display: grid;
+        grid-column: 1 / -1;
+        grid-template-columns: subgrid;
+        column-gap: 10px;
+        margin-bottom: 0;
+    }
+    .acct-site { max-width: none; }
+    .acct-count { margin-left: 0; text-align: right; }
+    /* the empty-list and no-match notes are not rows */
+    #rows > .note { grid-column: 1 / -1; }
+}
+
+/* On a phone there is no room for four columns: giving the provider a share
+   wide enough for the longest name left the account itself at about 30px,
+   which is no account at all. Below the template's breakpoint the row goes to
+   two lines instead, which needs no shared column widths and so no subgrid. */
+@media (max-width: 760px) {
+    #rows { display: block; }
+    .acct {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas:
+            "site actions"
+            "user count";
+        column-gap: 10px;
+        row-gap: 2px;
+        margin-bottom: 6px;
+    }
+    .acct-site    { grid-area: site; max-width: none; align-self: center; }
+    .acct-user    { grid-area: user; }
+    .acct-count   { grid-area: count; margin-left: 0; align-self: center; }
+    .acct-actions { grid-area: actions; }
+}
+.acct-actions { display: flex; gap: 6px; flex: 0 0 auto; }
+#acctFilter { max-width: 260px; }
+
+/* Edit dialog. A native <dialog> so focus trapping and Escape come free. */
+#dlgEdit {
+    border: 1px solid var(--line);
+    background: var(--bg-panel, var(--bg));
+    color: var(--fg);
+    border-radius: var(--radius, 6px);
+    padding: 0;
+    width: min(620px, calc(100vw - 32px));
+    max-height: calc(100vh - 48px);
+}
+#dlgEdit::backdrop { background: rgba(0, 0, 0, 0.6); }
+.dlg-body { padding: 16px; }
+.dlg-foot { display: flex; gap: 8px; align-items: center; padding: 12px 16px; border-top: 1px solid var(--line); }
+
+@media print {
+    /* Codes never reach paper or a PDF text layer from the normal page. A CSS
+       blur is cosmetic: the characters stay selectable in the output, so the
+       fields are removed outright rather than obscured. */
+    textarea.code { display: none !important; }
+
+    /* The dialog lives in the top layer, which some engines paint over a
+       printed page. Removed outright on every print path. */
+    #dlgEdit { display: none !important; }
+
+    /* The print panels are multi-page by design, so they must be allowed to
+       break. Inherited from the template's blanket .panel rule, which assumes
+       a panel is smaller than a page. */
+    #panelQrPrint, #panelPlainPrint, #panelCardPrint {
+        break-inside: auto !important;
+        page-break-inside: auto !important;
+    }
+
+    /* An accidental Ctrl+P is not one of the three print paths, so it prints a
+       notice instead of the page. The template's print block deliberately
+       unhides every tab (section[hidden] -> display: block) to print a whole
+       document, which here would put the About essay and, worse, the account
+       inventory - providers and usernames, though never the codes - on paper
+       that nobody meant to produce. Printing is only ever one of the three
+       artifacts chosen from the Vault panel. */
+    html:not([data-print]) .page,
+    html:not([data-print]) .footer { display: none !important; }
+    html:not([data-print]) section[hidden] { display: none !important; }
+    html:not([data-print]) #printNotice { display: block !important; }
+
+    /* Key card print: the card, the masthead and nothing else. */
+    html[data-print="card"] #pane-vault > .panel:not(#panelCardPrint),
+    html[data-print="card"] #pane-about,
+    html[data-print="card"] .statusline { display: none !important; }
+    html[data-print="card"] section[hidden] { display: none !important; }
+    html[data-print="card"] #cardKey { font-size: 15pt; line-height: 2.2; border: 1px solid #999; }
+    html[data-print="card"] #cardMeta { font-size: 9.5pt; }
+    html[data-print="card"] .qr-frame { border: none; padding: 0; }
+}
+
+/* The symbol is machine read, so it is the one element that does not follow
+   the palette: scanners need true black on true white in every mode. */
+.qr-page { break-inside: avoid; page-break-inside: avoid; margin-bottom: 18px; }
+.qr-page + .qr-page { break-before: page; page-break-before: always; }
+/* The envelope notes are reference text, not part of the symbol, so they are
+   allowed to flow onto a page of their own rather than forcing the last
+   symbol to shrink or split. */
+.qr-note { break-before: page; page-break-before: always; }
+.qr-frame { background: #fff; padding: 10px; display: inline-block; border: 1px solid var(--line); }
+.qr-frame svg { display: block; width: 100%; height: auto; max-width: 151mm; max-height: 151mm; }
+.qr-cap { margin-top: 8px; }
+
+/* Plaintext sheet. Dense on purpose: the fewer pages, the fewer things to
+   lose. Three columns of 9pt fits roughly two hundred codes on A4. */
+.plain-head { white-space: pre-wrap; font-size: 11px; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.plain-cols { column-count: 3; column-gap: 8mm; }
+.plain-acct { break-inside: avoid; page-break-inside: avoid; margin: 0 0 5mm; }
+.plain-site { font-weight: 600; }
+.plain-codes { white-space: pre-wrap; color: var(--fg-dim); }
+/* The key card and the symbol captions are laid out as fixed-width blocks, so
+   their line breaks have to survive. */
+#cardKey, #cardMeta, .qr-cap { white-space: pre-wrap; }
+
+@media print {
+    html[data-print="plain"] #pane-vault > .panel:not(#panelPlainPrint),
+    html[data-print="plain"] #pane-about,
+    html[data-print="plain"] .statusline { display: none !important; }
+    html[data-print="plain"] section[hidden] { display: none !important; }
+    html[data-print="plain"] #panelPlainPrint { border: none; padding: 0; }
+    html[data-print="plain"] .plain-head { font-size: 9pt; }
+    html[data-print="plain"] .plain-cols { font-size: 9pt; line-height: 1.35; }
+    html[data-print="plain"] .plain-codes { color: #000; }
+
+    html[data-print="qr"] #pane-vault > .panel:not(#panelQrPrint),
+    html[data-print="qr"] #pane-about,
+    html[data-print="qr"] .statusline { display: none !important; }
+    html[data-print="qr"] section[hidden] { display: none !important; }
+    html[data-print="qr"] .qr-frame { border: none; padding: 0; }
+    html[data-print="qr"] .qr-cap { font-size: 9pt; }
+    html[data-print="qr"] .qr-note { font-size: 8.5pt; line-height: 1.5; }
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+    <div class="topbar-inner">
+        <div class="brand">
+            <span class="logo" aria-hidden="true">
+                <!-- LOGO: one mark for every design and mode. Replace this SVG with the
+                     tool's own, drawn with currentColor on a 32x32 viewBox so it inherits
+                     the accent. The frame around it is handled by .logo. This default is a
+                     bracketed cell: deliberately plain, and legible at 20px. -->
+                <svg viewBox="0 0 32 32">
+                    <path d="M16 3.2 27 7.2v9.6c0 6.4-4.4 10.6-11 12.2-6.6-1.6-11-5.8-11-12.2V7.2z" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/>
+                    <circle cx="16" cy="14.2" r="2.9" fill="currentColor"/>
+                    <path d="M16 17.4v4.6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+                </svg>
+            </span>
+            <span class="name">back-stop</span>
+            <span class="pulse" title="Runs entirely in this tab. Nothing is uploaded and nothing is saved to this machine."></span>
+        </div>
+
+        <nav class="tabs" role="tablist">
+            <button class="tab" id="tab-vault" role="tab" aria-selected="true" aria-controls="pane-vault">Vault</button>
+            <button class="tab" id="tab-about" role="tab" aria-selected="false" aria-controls="pane-about">About</button>
+        </nav>
+
+        <div class="bar-tools">
+
+            <!-- Design -->
+            <div class="menu-wrap">
+                <button class="icon-btn" id="designBtn" type="button" aria-haspopup="true" aria-expanded="false"
+                        aria-label="Design" title="Design">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M4 9V4h5"></path><path d="M20 15v5h-5"></path>
+                        <rect x="4" y="9" width="16" height="11"></rect>
+                    </svg>
+                </button>
+                <div class="menu" id="designMenu" role="menu" hidden>
+                    <div class="menu-title">Design</div>
+                    <button class="opt" role="menuitemradio" aria-checked="false" data-set="chamfer">
+                        <span class="dsw" aria-hidden="true"></span>
+                        <span class="lbl">Chamfer<small>cut corners, instrument grid</small></span>
+                        <span class="tick" aria-hidden="true">&check;</span>
+                    </button>
+                    <button class="opt" role="menuitemradio" aria-checked="false" data-set="console">
+                        <span class="dsw" aria-hidden="true"></span>
+                        <span class="lbl">Console<small>square, graphite, scan rules</small></span>
+                        <span class="tick" aria-hidden="true">&check;</span>
+                    </button>
+                    <button class="opt" role="menuitemradio" aria-checked="false" data-set="circuit">
+                        <span class="dsw" aria-hidden="true"></span>
+                        <span class="lbl">Circuit<small>board colours, via grid, copper</small></span>
+                        <span class="tick" aria-hidden="true">&check;</span>
+                    </button>
+                    <button class="opt" role="menuitemradio" aria-checked="false" data-set="contour">
+                        <span class="dsw" aria-hidden="true"></span>
+                        <span class="lbl">Contour<small>soft radii, accent wash</small></span>
+                        <span class="tick" aria-hidden="true">&check;</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Mode -->
+            <div class="menu-wrap">
+                <button class="icon-btn" id="modeBtn" type="button" aria-haspopup="true" aria-expanded="false"
+                        aria-label="Mode" title="Mode">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="12" cy="12" r="9"></circle>
+                        <path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" stroke="none"></path>
+                    </svg>
+                </button>
+                <div class="menu" id="modeMenu" role="menu" hidden>
+                    <div class="menu-title">Mode</div>
+                    <button class="opt" role="menuitemradio" aria-checked="false" data-set="dark">
+                        <span class="msw" aria-hidden="true"></span>
+                        <span class="lbl">Dark<small>default, lights off</small></span>
+                        <span class="tick" aria-hidden="true">&check;</span>
+                    </button>
+                    <button class="opt" role="menuitemradio" aria-checked="false" data-set="dusk">
+                        <span class="msw" aria-hidden="true"></span>
+                        <span class="lbl">Dusk<small>dark, lifted off black</small></span>
+                        <span class="tick" aria-hidden="true">&check;</span>
+                    </button>
+                    <button class="opt" role="menuitemradio" aria-checked="false" data-set="sepia">
+                        <span class="msw" aria-hidden="true"></span>
+                        <span class="lbl">Sepia<small>warm paper, low glare</small></span>
+                        <span class="tick" aria-hidden="true">&check;</span>
+                    </button>
+                    <button class="opt" role="menuitemradio" aria-checked="false" data-set="light">
+                        <span class="msw" aria-hidden="true"></span>
+                        <span class="lbl">Light<small>cool white</small></span>
+                        <span class="tick" aria-hidden="true">&check;</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Accent -->
+            <div class="menu-wrap">
+                <button class="icon-btn" id="accentBtn" type="button" aria-haspopup="true" aria-expanded="false"
+                        aria-label="Accent colour" title="Accent colour">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="12" cy="12" r="9"></circle>
+                        <circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"></circle>
+                    </svg>
+                </button>
+                <div class="menu" id="accentMenu" role="menu" hidden>
+                    <div class="menu-title">Accent</div>
+                    <div class="swatches" id="swatches"></div>
+                    <div class="wheel-wrap">
+                        <div class="wheel" id="wheel" tabindex="0" role="slider"
+                             aria-label="Accent colour wheel. Left and right change hue, up and down change intensity."
+                             aria-valuemin="0" aria-valuemax="359" aria-valuenow="178" aria-valuetext="Teal">
+                            <span class="wheel-dot" id="wheelDot" aria-hidden="true"></span>
+                        </div>
+                        <div class="accent-foot">
+                            <span>Accent: <span class="now" id="accentNow">Teal</span></span>
+                            <label class="hexin" title="Match a brand colour exactly. The lightness is still set per mode.">#<input
+                                type="text" class="field" id="accentHex" maxlength="7" placeholder="2ec4b6"
+                                spellcheck="false" autocomplete="off" aria-label="Accent colour as hex"></label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</header>
+
+<main class="page">
+
+    <div class="statusline">~/back-stop <span class="chev">&gt;</span> <b>encrypted store for account recovery codes</b>, nothing uploaded, nothing kept on this machine</div>
+
+    <section id="pane-vault" role="tabpanel" aria-labelledby="tab-vault">
+
+        <!-- ================= every way in ================= -->
+        <div class="panel" id="panelStart">
+            <div class="panel-head">
+                <h2>Open a vault</h2>
+                <span class="sub" id="lockSub">nothing open</span>
+            </div>
+
+            <div class="row">
+                <button class="btn" id="btnLoad">From a file</button>
+                <button class="btn" id="btnPaperIn">From paper</button>
+                <button class="btn" id="btnNew">New vault</button>
+            </div>
+            <input type="file" id="fileIn" accept=".json,application/json" hidden>
+
+            <div id="lockIdle" style="margin-top:12px">
+                <div class="prose">A vault file and a printed backup are equally valid
+                starting points: paper alone is a complete workflow, and nothing here
+                requires you to keep a file.</div>
+            </div>
+
+            <!-- from paper -->
+            <div id="paperWrap" hidden style="margin-top:14px">
+                <label class="f">Scanned text from the printed backup. Scan each symbol with a phone and paste the results here, in any order.<textarea class="field" id="inPaper" rows="4" autocomplete="off" spellcheck="false" autocapitalize="off"></textarea></label>
+                <div class="row" style="margin-top:10px">
+                    <button class="btn btn-primary" id="btnPaperLoad">Read backup</button>
+                    <button class="btn btn-ghost" id="btnPaperCancel">Cancel</button>
+                </div>
+                <div class="log" id="paperLog" style="margin-top:12px"></div>
+            </div>
+
+            <!-- unlock what is loaded -->
+            <div id="lockOpen" hidden style="margin-top:14px">
+                <div class="grid">
+                    <label class="f">Passphrase<input type="password" class="field" id="inPass" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
+                </div>
+                <div class="row" style="margin-top:10px">
+                    <button class="btn btn-primary" id="btnUnlock">Unlock</button>
+                    <button class="btn btn-ghost" id="btnBreak">Use recovery key instead</button>
+                </div>
+                <div id="breakWrap" hidden style="margin-top:12px">
+                    <label class="f">Recovery key from the printed card. Scan the symbol on the card and paste it, or type the 54 characters - case, spaces and line breaks do not matter.<textarea class="field" id="inKey" rows="3" autocomplete="off" spellcheck="false" autocapitalize="off"></textarea></label>
+                    <div class="row" style="margin-top:10px"><button class="btn" id="btnUnlockKey">Unlock with key</button></div>
+                </div>
+            </div>
+
+            <!-- new vault -->
+            <div id="lockNew" hidden style="margin-top:14px">
+                <div class="grid">
+                    <label class="f">Passphrase<input type="password" class="field" id="inNew1" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
+                    <label class="f">Again<input type="password" class="field" id="inNew2" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
+                </div>
+                <div class="log" id="passMeter" style="margin-top:10px"></div>
+                <div class="note" style="margin-top:10px">Use six or more unrelated words. PBKDF2 is the strongest key derivation the browser offers natively and it is brute-forceable on a GPU, so length is the only defence that scales.</div>
+                <div class="row" style="margin-top:10px">
+                    <button class="btn btn-primary" id="btnCreate">Create vault</button>
+                    <button class="btn btn-ghost" id="btnCancelNew">Cancel</button>
+                </div>
+            </div>
+
+            <div class="log" id="lockLog" style="margin-top:12px"></div>
+        </div>
+
+        <!-- ================= vault actions, only once open ================= -->
+        <div class="panel noprint" id="panelBar" hidden>
+            <div class="panel-head">
+                <h2>Vault</h2>
+                <span class="sub">save, back up, lock</span>
+            </div>
+            <div class="row">
+                <button class="btn btn-primary" id="btnSave">Export file</button>
+                <button class="btn" id="btnPaper">Print backup</button>
+                <button class="btn" id="btnCard">Print key card</button>
+                <button class="btn btn-danger" id="btnPlain">Print in the clear</button>
+                <div class="spacer"></div>
+                <button class="btn btn-warn" id="btnReset">Lock</button>
+                <button class="btn btn-danger" id="btnClose">Close</button>
+            </div>
+            <div class="note" style="margin-top:10px">Lock keeps the vault in this tab, sealed, so a passphrase or key card reopens it. Close discards it. Either way nothing is written to this browser, so export a file or print a backup before closing the tab.</div>
+        </div>
+
+        <!-- ================= open ================= -->
+        <div class="panel noprint" id="panelCtl" hidden>
+            <div class="panel-head">
+                <h2>Display</h2>
+                <span class="sub">screen leakage</span>
+            </div>
+            <div class="row">
+                <div class="toggle-item" style="gap:8px">
+                    <span class="toggle-label">Blur codes</span>
+                    <div class="toggle-switch active" id="tgBlur" role="switch" aria-checked="true" tabindex="0" aria-label="Blur codes on screen"></div>
+                </div>
+                <div class="spacer"></div>
+                <span class="sub" id="idleNote"></span>
+            </div>
+            <div class="grid" style="margin-top:12px">
+                <label class="f">Vault label<input type="text" class="field" id="mLabel" placeholder="Used for the filename only, not secret" autocomplete="off" spellcheck="false"></label>
+            </div>
+            <div class="note" style="margin-top:10px">A field you are typing into cannot be blurred and stay usable, so the field you have focused is always legible. Everything else is covered. Hold "show" on a row to read it.</div>
+        </div>
+
+        <div class="panel" id="panelVault" hidden>
+            <div class="panel-head">
+                <h2>Accounts</h2>
+                <div class="row noprint">
+                    <span class="sub" id="vaultStat"></span>
+                    <button class="btn btn-sm" id="btnAdd">Add account</button>
+                </div>
+            </div>
+            <div class="row noprint" style="margin-bottom:10px">
+                <input type="text" class="field" id="acctFilter" placeholder="Filter by provider or account" autocomplete="off" spellcheck="false">
+            </div>
+            <div id="rows"></div>
+        </div>
+
+        <!-- ================= plaintext, print only ================= -->
+        <div class="panel" id="panelPlainPrint" hidden>
+            <div class="plain-head" id="plainHead"></div>
+            <div class="plain-cols" id="plainCols"></div>
+        </div>
+
+        <!-- ================= paper backup, print only ================= -->
+        <div class="panel" id="panelQrPrint" hidden>
+            <div class="panel-head"><h2>back-stop encrypted backup</h2></div>
+            <div class="prose">
+                The codes below are this vault, encrypted. They are useless without
+                either the passphrase or the key card printed separately. Scan them with
+                any phone camera and paste the text into back-stop, or decrypt the
+                envelope directly with the format notes at the foot of this page.
+            </div>
+            <div id="qrPages"></div>
+        </div>
+
+        <!-- ================= key card, print only ================= -->
+        <div class="panel" id="panelCardPrint" hidden>
+            <div class="panel-head"><h2>back-stop recovery key card</h2></div>
+            <div class="prose">
+                This card is the raw data key for the vault file it was printed with. It
+                decrypts that vault without the passphrase. Anyone holding both this card
+                and the vault file can read every code in it, so this card must be stored
+                apart from the vault and apart from the printed ciphertext page.
+            </div>
+            <div class="log" id="cardKey" style="margin-top:12px"></div>
+            <div class="qr-frame" id="cardQr" style="margin-top:12px"></div>
+            <div class="log" id="cardMeta" style="margin-top:12px"></div>
+        </div>
+
+    </section>
+
+    <dialog id="dlgEdit" class="noprint" aria-labelledby="dlgTitle">
+        <div class="panel-head" style="padding:14px 16px;margin:0">
+            <h2 id="dlgTitle">Edit account</h2>
+            <span class="sub" id="dlgStat"></span>
+        </div>
+        <div class="dlg-body">
+            <div class="grid">
+                <label class="f">Provider<input type="text" class="field" id="edSite" placeholder="e.g. github" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
+                <label class="f">Account<input type="text" class="field" id="edUser" placeholder="e.g. you@example.com" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
+            </div>
+            <label class="f" style="margin-top:12px">Note<input type="text" class="field" id="edNote" placeholder="Not secret, e.g. where the authenticator lives" autocomplete="off" spellcheck="false"></label>
+            <label class="f" style="margin-top:12px">Recovery codes, one per line
+                <textarea class="field code" id="edCodes" rows="8" autocomplete="off" spellcheck="false" autocapitalize="off"></textarea>
+            </label>
+            <div class="row" style="margin-top:8px">
+                <button class="btn btn-sm" id="edShow" type="button" title="Hold to reveal">show</button>
+                <span class="sub" id="edCount"></span>
+            </div>
+        </div>
+        <div class="dlg-foot">
+            <button class="btn btn-primary" id="edSave" type="button">Save</button>
+            <button class="btn btn-ghost" id="edCancel" type="button">Cancel</button>
+            <div class="spacer"></div>
+            <button class="btn btn-danger" id="edDelete" type="button">Remove account</button>
+        </div>
+    </dialog>
+
+    <section id="pane-about" role="tabpanel" aria-labelledby="tab-about" hidden>
+        <div class="panel">
+            <div class="panel-head"><h2>About</h2></div>
+            <div class="prose">
+                <p><b>What this is.</b> A store for account recovery codes, the one-time codes a provider gives you to get back in when your authenticator is gone. It holds them encrypted, exports an encrypted file, and prints a key card for offline storage. It is not a password manager and it is not a synchronised anything.</p>
+                <p><b>Where the data goes.</b> Nowhere. There is no network call, no analytics, and no localStorage: the content security policy in the head of this file blocks outbound connections outright, and the tool never writes your codes to this browser. Plaintext exists in this tab's memory and nowhere else. Closing the tab discards anything you have not exported.</p>
+                <p><b>Crypto.</b> The vault body is AES-256-GCM under a random data key. That data key is wrapped with a second AES-256-GCM key derived from your passphrase with PBKDF2-HMAC-SHA256 at 600,000 iterations over a random 16-byte salt. Both the wrapped key and the body live in the exported file. The printed card carries the raw data key, which is why it is a break-glass copy and not a convenience.</p>
+                <p><b>The paper backup.</b> Print backup writes the vault as one or more QR codes at error correction level M, carrying a compact binary envelope rather than the JSON file. Scan them with any phone camera and paste the text back in to restore, in any order. The symbols are ciphertext, so the printed page is worthless on its own: it needs the passphrase, or the key card, which is printed separately and must be stored apart from it. Roughly sixty codes fit in one symbol. The envelope layout is printed on the page so the backup can be decrypted with a short script and no browser.</p>
+                <p><b>Printing in the clear.</b> Print in the clear puts every code on paper as readable text, three dense columns to a sheet. It asks first. The sheet is then equivalent to the codes themselves and belongs in a safe, not a folder, but it is also the only backup that needs nothing at all at recovery time: no passphrase, no scanner, no working copy of this tool. For a last-resort copy that is the right trade. Keep it and the encrypted QR backup in different places.</p>
+                <p><b>Known limits.</b> PBKDF2 is GPU-friendly and the browser offers nothing better without a dependency, so a short passphrase will not survive an offline attack on the exported file. A field with keyboard focus is legible, because a blurred field cannot be typed into. Printing to PDF writes to disk and printing over a network hands your job to a spooler: print the card on paper, on a local printer, and check the queue is empty afterwards.</p>
+            </div>
+        </div>
+        <div class="panel">
+            <div class="panel-head"><h2>Appearance</h2><span class="sub">design, mode, accent</span></div>
+            <div class="prose">Three controls in the top bar, saved between visits. Design sets the shape language and backdrop, mode sets the lightness, and the accent can be any hue. They combine freely, and the accent is re-lit per mode so it never drops below a readable contrast.</div>
+        </div>
+    </section>
+
+</main>
+
+<footer class="footer">
+    <span>back-stop</span>
+    <span class="ver" id="footVer">v1.0.3</span>
+    <span class="sep">&middot;</span>
+    <span>MIT</span>
+    <span class="sep">&middot;</span>
+    <span>github.com/shanemc92</span>
+    <span class="right">no network calls, no analytics</span>
+</footer>
+
+<div id="printNotice" hidden>
+    <p><b>Nothing was printed.</b></p>
+    <p>This page does not print. Choose one of the three deliberate backups from
+    the Vault panel instead: <b>Print key card</b> for the recovery key,
+    <b>Print backup</b> for the encrypted QR sheet, or <b>Print in the clear</b>
+    for readable codes.</p>
+</div>
+
+<div class="notification" id="notification" role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+
+/* ---------- app identity ---------- */
+const APP = { id: "back-stop", version: "1.0.3", schema: 1 };
+
+/* ---------- dom helpers ---------- */
+const $  = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const el = (tag, cls, txt) => {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (txt != null) n.textContent = txt;
+    return n;
+};
+const esc = s => String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+const today = () => new Date().toISOString().slice(0, 10);
+
+/* ---------- storage (file:// and private mode safe) ---------- */
+const store = {
+    get(k)   { try { return localStorage.getItem(APP.id + ":" + k); } catch (e) { return null; } },
+    set(k,v) { try { localStorage.setItem(APP.id + ":" + k, v); return true; } catch (e) { return false; } },
+    del(k)   { try { localStorage.removeItem(APP.id + ":" + k); } catch (e) {} }
+};
+
+/* ---------- notification ---------- */
+let notifyT;
+function notify(msg, isError) {
+    const n = $("#notification");
+    n.textContent = msg;
+    n.classList.toggle("error", !!isError);
+    n.classList.add("show");
+    clearTimeout(notifyT);
+    notifyT = setTimeout(() => n.classList.remove("show"), 2200);
+}
+
+/* ============================================================
+   Appearance: design x mode x accent
+
+   Each axis is one data attribute or one pair of custom properties
+   on <html>, and each is stored separately, so a design change never
+   resets the mode and neither touches the accent.
+   ============================================================ */
+const root = document.documentElement;
+
+const DESIGNS = ["chamfer", "console", "circuit", "contour"];
+const MODES   = ["dark", "dusk", "sepia", "light"];
+
+/* Hue plus chroma. Kept clear of the green, amber and red that --ok,
+   --warn and --bad occupy, so the accent can never be read as state. */
+const ACCENTS = [
+    { id: "teal",   name: "Teal",   h: 178, c: 68 },
+    { id: "cyan",   name: "Cyan",   h: 196, c: 72 },
+    { id: "azure",  name: "Azure",  h: 214, c: 76 },
+    { id: "indigo", name: "Indigo", h: 248, c: 70 },
+    { id: "violet", name: "Violet", h: 276, c: 64 },
+    { id: "orchid", name: "Orchid", h: 302, c: 58 },
+    { id: "rose",   name: "Rose",   h: 340, c: 66 },
+    { id: "slate",  name: "Slate",  h: 210, c: 18 }
+];
+
+let accent = { h: 178, c: 68, name: "Teal" };
+
+/* ---------- keeping an arbitrary hue readable ----------
+   HSL lightness is not perceptual: hsl(178 68% 40%) and
+   hsl(248 68% 40%) are nowhere near the same brightness, so a fixed
+   per-mode lightness leaves a teal accent washed out on white while
+   an indigo one is fine. The mode still sets the lightness it wants,
+   but it is treated as a starting point: the accent is then walked
+   away from the surface until it clears a real contrast ratio,
+   measured against the surfaces it actually sits on. That is what
+   makes any colour from the picker safe, including a near-white or
+   near-black one, and why no accented label can go invisible. */
+const TARGET = 4.6;
+
+const srgb = u => (u <= 0.03928 ? u / 12.92 : Math.pow((u + 0.055) / 1.055, 2.4));
+const lum = c => 0.2126 * srgb(c[0]) + 0.7152 * srgb(c[1]) + 0.0722 * srgb(c[2]);
+function ratio(a, b) {
+    const x = lum(a), y = lum(b);
+    return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+}
+function hslRgb(h, s, l) {
+    s /= 100; l /= 100;
+    const k = n => (n + h / 30) % 12;
+    const a = s * Math.min(l, 1 - l);
+    const f = n => l - a * Math.max(-1, Math.min(Math.min(k(n) - 3, 9 - k(n)), 1));
+    return [f(0), f(8), f(4)];
+}
+/* Read the resolved colour off a real element rather than parsing the
+   token: the browser has already substituted every variable. */
+function surfaceOf(node) {
+    const m = /(\d+(?:\.\d+)?)[,\s]+(\d+(?:\.\d+)?)[,\s]+(\d+(?:\.\d+)?)/
+        .exec(getComputedStyle(node).backgroundColor || "");
+    return m ? [m[1] / 255, m[2] / 255, m[3] / 255] : null;
+}
+function surfaces() {
+    const out = [];
+    const p = $(".panel"), b = document.body;
+    [p, b].forEach(n => { const c = n && surfaceOf(n); if (c) out.push(c); });
+    return out.length ? out : [[0, 0, 0]];
+}
+const worst = (h, c, l, surf) => Math.min.apply(null, surf.map(s => ratio(hslRgb(h, c, l), s)));
+
+/* The mode's --al, used as the preference to start from. */
+function baseL() {
+    const v = parseFloat(getComputedStyle(root).getPropertyValue("--al"));
+    return isFinite(v) ? v : 66;
+}
+function tuneL(h, c, surf) {
+    const base = baseL();
+    if (worst(h, c, base, surf) >= TARGET) return base;
+    const dir = lum(surf[0]) > 0.35 ? -1 : 1;   /* away from the surface */
+    for (let l = base; l >= 6 && l <= 96; l += dir * 1.5) {
+        if (worst(h, c, l, surf) >= TARGET) return Math.round(l * 10) / 10;
+    }
+    return dir < 0 ? 14 : 94;
+}
+const accentCss = (h, c, l) => "hsl(" + h + " " + c + "% " + l + "%)";
+
+function applyAccent(a, save) {
+    accent = { h: a.h, c: a.c, name: a.name || ("H" + Math.round(a.h)) };
+    root.style.setProperty("--ah", String(accent.h));
+    root.style.setProperty("--ac", accent.c + "%");
+    $("#accentNow").textContent = accent.name;
+    tuneAccent();
+    if (save && !store.set("accent", JSON.stringify(accent))) sessionOnly();
+}
+
+/* Sets the accent lightness, and the ink that goes on top of it, from
+   measurement rather than assumption. Called on accent change and on
+   every mode change, since the surface underneath has just moved. */
+function tuneAccent() {
+    const surf = surfaces();
+    /* --al is cleared first so baseL() reads the mode's value, not the
+       one tuned for the previous mode. */
+    root.style.removeProperty("--al");
+    const l = tuneL(accent.h, accent.c, surf);
+    root.style.setProperty("--al", l + "%");
+
+    const acc = hslRgb(accent.h, accent.c, l);
+    const pale = hslRgb(accent.h, 30, 98), deep = hslRgb(accent.h, 55, 9);
+    root.style.setProperty("--ink",
+        ratio(pale, acc) >= ratio(deep, acc) ? accentCss(accent.h, 30, 98) : accentCss(accent.h, 55, 9));
+
+    paintSwatches(surf);
+    paintWheel(surf);
+}
+
+/* The rim is 24 stops of the same tuned colour the page would use, so
+   the wheel shifts with the mode instead of lying about it. Hue 0 sits
+   at three o'clock and runs clockwise, which is what the pointer maths
+   below assumes. */
+const WHEEL_C = 80;
+function paintWheel(surf) {
+    const s0 = surf || surfaces();
+    const w = $("#wheel");
+    const tuned = root.style.getPropertyValue("--al");
+    root.style.removeProperty("--al");
+    const stops = [];
+    for (let h = 0; h <= 360; h += 15) {
+        stops.push(accentCss(h % 360, WHEEL_C, tuneL(h % 360, WHEEL_C, s0)) + " " + h + "deg");
+    }
+    if (tuned) root.style.setProperty("--al", tuned);
+    w.style.background = "conic-gradient(from 90deg, " + stops.join(", ") + ")";
+
+    const r = (w.clientWidth || 116) / 2;   /* menu is display:none on the first paint */
+    const rad = accent.h * Math.PI / 180;
+    const d = Math.min(1, Math.max(0, (accent.c - C_MIN) / (C_MAX - C_MIN))) * (r - 7);
+    const dot = $("#wheelDot");
+    dot.style.left = (r + Math.cos(rad) * d) + "px";
+    dot.style.top  = (r + Math.sin(rad) * d) + "px";
+    dot.style.background = "var(--accent)";
+    w.setAttribute("aria-valuenow", String(Math.round(accent.h)));
+    w.setAttribute("aria-valuetext", accent.name);
+}
+
+function paintSwatches(surf) {
+    const s0 = surf || surfaces();
+    const tuned = root.style.getPropertyValue("--al");
+    root.style.removeProperty("--al");
+    $$(".swatch").forEach(sw => {
+        const h = Number(sw.dataset.h), c = Number(sw.dataset.c);
+        sw.style.background = accentCss(h, c, tuneL(h, c, s0));
+        sw.setAttribute("aria-checked", String(h === accent.h && c === accent.c));
+    });
+    if (tuned) root.style.setProperty("--al", tuned);
+}
+
+/* The chroma range the picker works in. The floor keeps a grey pick
+   reading as a deliberate accent rather than as broken chrome. */
+const C_MIN = 12, C_MAX = 92;
+
+/* hex -> hue and chroma. Lightness is dropped on purpose: the mode
+   supplies it, which is what stops a near-black custom pick from
+   turning every accented label invisible. */
+function hexToHc(hex) {
+    const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+    if (!m) return null;
+    const n = parseInt(m[1], 16);
+    const r = (n >> 16 & 255) / 255, g = (n >> 8 & 255) / 255, b = (n & 255) / 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+    let h = 0;
+    if (d) {
+        if (max === r)      h = ((g - b) / d) % 6;
+        else if (max === g) h = (b - r) / d + 2;
+        else                h = (r - g) / d + 4;
+        h *= 60;
+        if (h < 0) h += 360;
+    }
+    const li = (max + min) / 2;
+    const s = d ? d / (1 - Math.abs(2 * li - 1)) : 0;
+    /* Floor the chroma so a grey pick still reads as a deliberate accent. */
+    return { h: Math.round(h), c: Math.max(C_MIN, Math.min(C_MAX, Math.round(s * 100))) };
+}
+
+function applyDesign(d, save) {
+    const v = DESIGNS.includes(d) ? d : DESIGNS[0];
+    root.dataset.design = v;
+    $$("#designMenu .opt").forEach(o => o.setAttribute("aria-checked", String(o.dataset.set === v)));
+    if (save && !store.set("design", v)) sessionOnly();
+}
+
+function applyMode(m, save) {
+    const v = MODES.includes(m) ? m : MODES[0];
+    root.dataset.mode = v;
+    $$("#modeMenu .opt").forEach(o => o.setAttribute("aria-checked", String(o.dataset.set === v)));
+    tuneAccent();      /* the accent is re-lit for the new surface */
+    if (save && !store.set("mode", v)) sessionOnly();
+}
+
+let warned = false;
+function sessionOnly() {
+    if (warned) return;
+    warned = true;
+    notify("Appearance changed for this session only, saving it needs the page served over http");
+}
+
+/* ---------- menus ---------- */
+const MENUS = [["#designBtn", "#designMenu"], ["#modeBtn", "#modeMenu"], ["#accentBtn", "#accentMenu"]];
+
+function closeMenus(except) {
+    MENUS.forEach(([b, m]) => {
+        if (m === except) return;
+        $(m).hidden = true;
+        $(b).setAttribute("aria-expanded", "false");
+    });
+}
+MENUS.forEach(([b, m]) => {
+    $(b).addEventListener("click", e => {
+        e.stopPropagation();
+        const open = $(m).hidden;
+        closeMenus(open ? m : null);
+        $(m).hidden = !open;
+        $(b).setAttribute("aria-expanded", String(open));
+        if (open && m === "#accentMenu") paintWheel();
+    });
+});
+document.addEventListener("click", e => {
+    if (!MENUS.some(([b, m]) => $(m).contains(e.target) || $(b).contains(e.target))) closeMenus();
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeMenus(); });
+
+$$("#designMenu .opt").forEach(o => o.addEventListener("click", () => {
+    applyDesign(o.dataset.set, true);
+    closeMenus();
+}));
+$$("#modeMenu .opt").forEach(o => o.addEventListener("click", () => {
+    applyMode(o.dataset.set, true);
+    closeMenus();
+}));
+
+/* Swatches are built rather than written out: one source of truth for
+   the hues, and each button gets a real label for screen readers. */
+ACCENTS.forEach(a => {
+    const b = el("button", "swatch");
+    b.type = "button";
+    b.setAttribute("role", "menuitemradio");
+    b.setAttribute("aria-checked", "false");
+    b.setAttribute("aria-label", a.name);
+    b.title = a.name;
+    b.dataset.h = a.h;
+    b.dataset.c = a.c;
+    b.addEventListener("click", () => applyAccent(a, true));
+    $("#swatches").appendChild(b);
+});
+/* Wheel: angle is hue, distance from the middle is chroma. Pointer
+   capture means a drag that leaves the circle still tracks, and the
+   same handler covers mouse, pen and touch. */
+const wheel = $("#wheel");
+function pickFrom(e) {
+    const b = wheel.getBoundingClientRect();
+    const r = b.width / 2;
+    const x = e.clientX - b.left - r, y = e.clientY - b.top - r;
+    let h = Math.atan2(y, x) * 180 / Math.PI;
+    if (h < 0) h += 360;
+    const c = C_MIN + Math.min(1, Math.hypot(x, y) / (r - 7)) * (C_MAX - C_MIN);
+    applyAccent({ h: Math.round(h), c: Math.round(c), name: hcName(h, c) }, true);
+}
+const hcName = (h, c) => "H" + Math.round(h) + " C" + Math.round(c);
+
+wheel.addEventListener("pointerdown", e => {
+    e.preventDefault();
+    wheel.setPointerCapture(e.pointerId);
+    pickFrom(e);
+});
+wheel.addEventListener("pointermove", e => {
+    if (wheel.hasPointerCapture(e.pointerId)) pickFrom(e);
+});
+wheel.addEventListener("keydown", e => {
+    const step = { ArrowLeft: [-4, 0], ArrowRight: [4, 0], ArrowUp: [0, 5], ArrowDown: [0, -5] }[e.key];
+    if (!step) return;
+    e.preventDefault();
+    const h = (accent.h + step[0] + 360) % 360;
+    const c = Math.max(C_MIN, Math.min(C_MAX, accent.c + step[1]));
+    applyAccent({ h: h, c: c, name: hcName(h, c) }, true);
+});
+
+/* Hex entry, for matching something exact. */
+$("#accentHex").addEventListener("input", e => {
+    const hc = hexToHc(e.target.value);
+    if (hc) applyAccent({ h: hc.h, c: hc.c, name: "#" + e.target.value.trim().replace(/^#/, "").toUpperCase() }, true);
+});
+
+/* ---------- restore appearance ---------- */
+applyDesign(store.get("design") || DESIGNS[0], false);
+applyMode(store.get("mode") || MODES[0], false);
+(() => {
+    let a = null;
+    try { a = JSON.parse(store.get("accent")); } catch (e) {}
+    applyAccent(a && isFinite(a.h) ? a : ACCENTS[0], false);
+})();
+
+/* ---------- tabs ---------- */
+const TABS = [["vault", "pane-vault"], ["about", "pane-about"]];
+function tab(which) {
+    TABS.forEach(([id, pane]) => {
+        $("#tab-" + id).setAttribute("aria-selected", String(id === which));
+        $("#" + pane).hidden = id !== which;
+    });
+}
+TABS.forEach(([id]) => $("#tab-" + id).addEventListener("click", () => tab(id)));
+
+/* ---------- toggles ---------- */
+function toggle(node, onChange) {
+    const flip = () => {
+        const on = !node.classList.contains("active");
+        node.classList.toggle("active", on);
+        node.setAttribute("aria-checked", String(on));
+        onChange(on);
+    };
+    node.addEventListener("click", flip);
+    node.addEventListener("keydown", e => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(); }
+    });
+}
+
+/* ---------- files ---------- */
+function download(name, text, type) {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([text], { type: type || "text/plain;charset=utf-8" }));
+    a.download = name;
+    a.click();
+    setTimeout(() => { try { URL.revokeObjectURL(a.href); } catch (e) {} }, 1000);
+}
+function read(file, cb) {
+    const r = new FileReader();
+    r.onload = () => cb(String(r.result), file);
+    r.onerror = () => notify("Could not read that file", true);
+    r.readAsText(file);
+}
+function dropzone(zone, input, cb) {
+    zone.addEventListener("click", () => input.click());
+    zone.addEventListener("keydown", e => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); input.click(); }
+    });
+    input.addEventListener("change", () => {
+        if (input.files[0]) read(input.files[0], cb);
+        input.value = "";
+    });
+    zone.addEventListener("dragover", e => { e.preventDefault(); zone.classList.add("over"); });
+    zone.addEventListener("dragleave", () => zone.classList.remove("over"));
+    zone.addEventListener("drop", e => {
+        e.preventDefault();
+        zone.classList.remove("over");
+        const f = e.dataTransfer.files[0];
+        if (f) read(f, cb);
+    });
+}
+const slug = s => (s || APP.id).replace(/[^a-z0-9]+/gi, "-").toLowerCase().replace(/^-|-$/g, "");
+const fname = ext => slug(state.meta.label) + "-" + (state.meta.date || today()) + "." + ext;
+
+/* Printing to PDF is discouraged for anything here - it writes to disk - but
+   it is how the paths get tested, so the three artifacts must not collide in
+   the download folder. Seconds are included because a key card and a backup
+   are often printed one after the other. */
+function printName(kind) {
+    const t = new Date().toISOString().replace(/[:.]/g, "-").replace(/T/, "-").slice(0, 19);
+    /* slug() falls back to APP.id, which would repeat the prefix on an
+       unlabelled vault, so the label segment is only added when there is one. */
+    const label = state.meta.label ? slug(state.meta.label) + "-" : "";
+    return APP.id + "-" + kind + "-" + label + t;
+}
+let titleWas = null;
+function printTitle(kind) {
+    if (titleWas === null) titleWas = document.title;
+    document.title = printName(kind);
+}
+function printTitleRestore() {
+    if (titleWas !== null) { document.title = titleWas; titleWas = null; }
+}
+
+/* ---------- csv ---------- */
+const csvCell = v => {
+    const s = v == null ? "" : String(v);
+    return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+};
+const toCsv = rows => rows.map(r => r.map(csvCell).join(",")).join("\r\n");
+
+const QR_ECC = [[[1,26,16]],[[1,44,28]],[[1,70,44]],[[2,50,32]],[[2,67,43]],[[4,43,27]],[[4,49,31]],[[2,60,38],[2,61,39]],[[3,58,36],[2,59,37]],[[4,69,43],[1,70,44]],[[1,80,50],[4,81,51]],[[6,58,36],[2,59,37]],[[8,59,37],[1,60,38]],[[4,64,40],[5,65,41]],[[5,65,41],[5,66,42]],[[7,73,45],[3,74,46]],[[10,74,46],[1,75,47]],[[9,69,43],[4,70,44]],[[3,70,44],[11,71,45]],[[3,67,41],[13,68,42]],[[17,68,42]],[[17,74,46]],[[4,75,47],[14,76,48]],[[6,73,45],[14,74,46]],[[8,75,47],[13,76,48]],[[19,74,46],[4,75,47]],[[22,73,45],[3,74,46]],[[3,73,45],[23,74,46]],[[21,73,45],[7,74,46]],[[19,75,47],[10,76,48]],[[2,74,46],[29,75,47]],[[10,74,46],[23,75,47]],[[14,74,46],[21,75,47]],[[14,74,46],[23,75,47]],[[12,75,47],[26,76,48]],[[6,75,47],[34,76,48]],[[29,74,46],[14,75,47]],[[13,74,46],[32,75,47]],[[40,75,47],[7,76,48]],[[18,75,47],[31,76,48]]];
+const QR_CAP = [16,28,44,64,86,108,124,154,182,216,254,290,334,365,415,453,507,563,627,669,714,782,860,914,1000,1062,1128,1193,1267,1373,1455,1541,1631,1725,1812,1914,1992,2102,2216,2334];
+const QR_ALIGN = [[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50],[6,30,54],[6,32,58],[6,34,62],[6,26,46,66],[6,26,48,70],[6,26,50,74],[6,30,54,78],[6,30,56,82],[6,30,58,86],[6,34,62,90],[6,28,50,72,94],[6,26,50,74,98],[6,30,54,78,102],[6,28,54,80,106],[6,32,58,84,110],[6,30,58,86,114],[6,34,62,90,118],[6,26,50,74,98,122],[6,30,54,78,102,126],[6,26,52,78,104,130],[6,30,56,82,108,134],[6,34,60,86,112,138],[6,30,58,86,114,142],[6,34,62,90,118,146],[6,30,54,78,102,126,150],[6,24,50,76,102,128,154],[6,28,54,80,106,132,158],[6,32,58,84,110,136,162],[6,26,54,82,110,138,166],[6,30,58,86,114,142,170]];
+
+/* ---------- QR, byte mode, error level M ----------------------------------
+   Written for this tool rather than pulled in as a dependency: the content
+   security policy forbids remote scripts and the whole file has to stay
+   auditable. Level M fixed at 15 percent recovery, which is the point where a
+   crease or a thumbprint stops mattering. ECC block structure and alignment
+   centres are the tables from ISO/IEC 18004.
+   ------------------------------------------------------------------------ */
+
+const GF_EXP = new Uint8Array(512), GF_LOG = new Uint8Array(256);
+(function () {
+    let x = 1;
+    for (let i = 0; i < 255; i++) { GF_EXP[i] = x; GF_LOG[x] = i; x <<= 1; if (x & 0x100) x ^= 0x11d; }
+    for (let i = 255; i < 512; i++) GF_EXP[i] = GF_EXP[i - 255];
+})();
+const gmul = (a, b) => (a && b) ? GF_EXP[GF_LOG[a] + GF_LOG[b]] : 0;
+
+function rsGen(n) {
+    let g = [1];
+    for (let i = 0; i < n; i++) {
+        const r = new Array(g.length + 1).fill(0);
+        for (let j = 0; j < g.length; j++) {
+            r[j] ^= g[j];
+            r[j + 1] ^= gmul(g[j], GF_EXP[i]);
+        }
+        g = r;
+    }
+    return g;
+}
+function rsEc(data, n) {
+    const gen = rsGen(n);
+    const res = data.concat(new Array(n).fill(0));
+    for (let i = 0; i < data.length; i++) {
+        const c = res[i];
+        if (!c) continue;
+        for (let j = 0; j < gen.length; j++) res[i + j] ^= gmul(gen[j], c);
+    }
+    return res.slice(data.length);
+}
+
+function qrFitVersion(len) {
+    for (let v = 1; v <= 40; v++) {
+        const cci = v < 10 ? 8 : 16;
+        if (Math.ceil((4 + cci + len * 8) / 8) <= QR_CAP[v - 1]) return v;
+    }
+    return 0;
+}
+const qrMaxBytes = () => {
+    for (let v = 40; v >= 1; v--) {
+        const cci = v < 10 ? 8 : 16;
+        return Math.floor((QR_CAP[v - 1] * 8 - 4 - cci) / 8);
+    }
+};
+
+function qrCodewords(bytesIn, ver) {
+    const cap = QR_CAP[ver - 1];
+    const bits = [];
+    const put = (val, len) => { for (let i = len - 1; i >= 0; i--) bits.push((val >>> i) & 1); };
+    put(4, 4);
+    put(bytesIn.length, ver < 10 ? 8 : 16);
+    for (let i = 0; i < bytesIn.length; i++) put(bytesIn[i], 8);
+    for (let i = 0; i < 4 && bits.length < cap * 8; i++) bits.push(0);
+    while (bits.length % 8) bits.push(0);
+    const bytes = [];
+    for (let i = 0; i < bits.length; i += 8) {
+        let b = 0;
+        for (let j = 0; j < 8; j++) b = (b << 1) | bits[i + j];
+        bytes.push(b);
+    }
+    const pad = [0xEC, 0x11];
+    let k = 0;
+    while (bytes.length < cap) bytes.push(pad[k++ % 2]);
+
+    const blocks = [];
+    let pos = 0;
+    QR_ECC[ver - 1].forEach(([nb, total, dlen]) => {
+        for (let i = 0; i < nb; i++) {
+            const d = bytes.slice(pos, pos + dlen);
+            pos += dlen;
+            blocks.push({ d, e: rsEc(d, total - dlen) });
+        }
+    });
+    const out = [];
+    const maxD = Math.max.apply(null, blocks.map(b => b.d.length));
+    for (let i = 0; i < maxD; i++) blocks.forEach(b => { if (i < b.d.length) out.push(b.d[i]); });
+    const maxE = Math.max.apply(null, blocks.map(b => b.e.length));
+    for (let i = 0; i < maxE; i++) blocks.forEach(b => { if (i < b.e.length) out.push(b.e[i]); });
+    return out;
+}
+
+function qrSkeleton(ver) {
+    const size = ver * 4 + 17;
+    const m = [], fn = [];
+    for (let r = 0; r < size; r++) { m.push(new Array(size).fill(0)); fn.push(new Array(size).fill(0)); }
+    const set = (r, c, v) => { m[r][c] = v; fn[r][c] = 1; };
+
+    const finder = (r0, c0) => {
+        for (let r = -1; r <= 7; r++) for (let c = -1; c <= 7; c++) {
+            const rr = r0 + r, cc = c0 + c;
+            if (rr < 0 || cc < 0 || rr >= size || cc >= size) continue;
+            const inRing = (r >= 0 && r <= 6 && (c === 0 || c === 6)) ||
+                           (c >= 0 && c <= 6 && (r === 0 || r === 6));
+            const inCore = r >= 2 && r <= 4 && c >= 2 && c <= 4;
+            set(rr, cc, (inRing || inCore) ? 1 : 0);
+        }
+    };
+    finder(0, 0); finder(0, size - 7); finder(size - 7, 0);
+
+    for (let i = 8; i < size - 8; i++) {
+        set(6, i, i % 2 === 0 ? 1 : 0);
+        set(i, 6, i % 2 === 0 ? 1 : 0);
+    }
+
+    if (ver >= 2) {
+        const pts = QR_ALIGN[ver - 2];
+        pts.forEach(r0 => pts.forEach(c0 => {
+            if ((r0 === 6 && c0 === 6) ||
+                (r0 === 6 && c0 === size - 7) ||
+                (r0 === size - 7 && c0 === 6)) return;
+            for (let r = -2; r <= 2; r++) for (let c = -2; c <= 2; c++) {
+                const edge = Math.abs(r) === 2 || Math.abs(c) === 2;
+                const mid = r === 0 && c === 0;
+                set(r0 + r, c0 + c, (edge || mid) ? 1 : 0);
+            }
+        }));
+    }
+
+    set(size - 8, 8, 1);                                  // dark module
+    for (let i = 0; i <= 8; i++) {                        // format info areas
+        if (!fn[8][i]) set(8, i, 0);
+        if (!fn[i][8]) set(i, 8, 0);
+    }
+    for (let i = 0; i < 8; i++) {
+        if (!fn[8][size - 1 - i]) set(8, size - 1 - i, 0);
+        if (!fn[size - 1 - i][8]) set(size - 1 - i, 8, 0);
+    }
+    if (ver >= 7) {
+        for (let i = 0; i < 18; i++) {
+            const a = Math.floor(i / 3), b = i % 3;
+            set(size - 11 + b, a, 0);
+            set(a, size - 11 + b, 0);
+        }
+    }
+    return { m, fn, size };
+}
+
+function qrPlace(m, fn, size, cw) {
+    let bit = 0;
+    const total = cw.length * 8;
+    const next = () => {
+        if (bit >= total) return 0;
+        const v = (cw[bit >> 3] >>> (7 - (bit & 7))) & 1;
+        bit++;
+        return v;
+    };
+    let up = true;
+    let col = size - 1;
+    while (col > 0) {
+        if (col === 6) col--;          // the vertical timing pattern is not a data column
+        for (let i = 0; i < size; i++) {
+            const r = up ? size - 1 - i : i;
+            for (let j = 0; j < 2; j++) {
+                const cc = col - j;
+                if (cc < 0 || fn[r][cc]) continue;
+                m[r][cc] = next();
+            }
+        }
+        col -= 2;
+        up = !up;
+    }
+    return bit;
+}
+
+const MASKS = [
+    (r, c) => (r + c) % 2 === 0,
+    (r, c) => r % 2 === 0,
+    (r, c) => c % 3 === 0,
+    (r, c) => (r + c) % 3 === 0,
+    (r, c) => (Math.floor(r / 2) + Math.floor(c / 3)) % 2 === 0,
+    (r, c) => (r * c) % 2 + (r * c) % 3 === 0,
+    (r, c) => ((r * c) % 2 + (r * c) % 3) % 2 === 0,
+    (r, c) => ((r + c) % 2 + (r * c) % 3) % 2 === 0
+];
+
+function qrPenalty(m, size) {
+    let p = 0;
+    // rule 1: runs of five or more
+    for (let i = 0; i < size; i++) {
+        for (const line of [m[i], m.map(row => row[i])]) {
+            let run = 1;
+            for (let j = 1; j < size; j++) {
+                if (line[j] === line[j - 1]) { run++; }
+                else { if (run >= 5) p += run - 2; run = 1; }
+            }
+            if (run >= 5) p += run - 2;
+        }
+    }
+    // rule 2: 2x2 blocks
+    for (let r = 0; r < size - 1; r++) for (let c = 0; c < size - 1; c++) {
+        const v = m[r][c];
+        if (v === m[r][c + 1] && v === m[r + 1][c] && v === m[r + 1][c + 1]) p += 3;
+    }
+    // rule 3: the 1:1:3:1:1 dark/light pattern, preceded or followed by a light
+    // run four modules wide. One count per occurrence, and the symbol edge
+    // counts as light. ISO/IEC 18004:2015 table 11.
+    const CORE = [1, 0, 1, 1, 1, 0, 1];
+    const at = (seq, i) => {
+        for (let k = 0; k < 7; k++) if (seq[i + k] !== CORE[k]) return false;
+        return true;
+    };
+    const find = (seq, from) => {
+        for (let i = Math.max(0, from); i + 7 <= seq.length; i++) if (at(seq, i)) return i;
+        return -1;
+    };
+    const light = (seq, a, b) => {
+        for (let i = Math.max(a, 0); i < Math.min(b, size); i++) if (seq[i]) return false;
+        return true;
+    };
+    const scan = seq => {
+        let n = 0, idx = find(seq, 0);
+        while (idx !== -1) {
+            let offset = idx + 7;
+            if (idx === 0 || idx === size - 7 ||
+                light(seq, idx - 4, idx) || light(seq, offset, offset + 4)) n += 40;
+            else offset = idx + 4;
+            idx = find(seq, offset);
+        }
+        return n;
+    };
+    for (let i = 0; i < size; i++) p += scan(m[i]) + scan(m.map(row => row[i]));
+    // rule 4: deviation of the dark proportion from half, in five percent steps
+    let dark = 0;
+    for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) dark += m[r][c];
+    const pct = dark * 100 / (size * size);
+    p += 10 * Math.floor(Math.abs(pct - 50) / 5);
+    return p;
+}
+
+function qrFormatBits(mask) {
+    let v = (0 << 3) | mask;            // level M is 00
+    let d = v << 10;
+    for (let i = 4; i >= 0; i--) if (d & (1 << (i + 10))) d ^= 0x537 << i;
+    return ((v << 10) | d) ^ 0x5412;
+}
+function qrVersionBits(ver) {
+    let d = ver << 12;
+    for (let i = 5; i >= 0; i--) if (d & (1 << (i + 12))) d ^= 0x1f25 << i;
+    return (ver << 12) | d;
+}
+
+function qrEncode(text) {
+    const bytes = [];
+    for (let i = 0; i < text.length; i++) {
+        const cc = text.charCodeAt(i);
+        if (cc > 255) throw new Error("payload must be single byte characters");
+        bytes.push(cc);
+    }
+    const ver = qrFitVersion(bytes.length);
+    if (!ver) throw new Error("payload too large for one symbol");
+    const cw = qrCodewords(bytes, ver);
+    const sk = qrSkeleton(ver);
+    const size = sk.size;
+    qrPlace(sk.m, sk.fn, size, cw);
+
+    let best = null;
+    for (let mask = 0; mask < 8; mask++) {
+        const m = sk.m.map(r => r.slice());
+        for (let r = 0; r < size; r++) for (let c = 0; c < size; c++)
+            if (!sk.fn[r][c] && MASKS[mask](r, c)) m[r][c] ^= 1;
+        /* Scored before the format and version bits are written, which is
+           where the reference implementations evaluate. */
+        const p = qrPenalty(m, size);
+        if (!best || p < best.p) best = { p, m, mask };
+    }
+    applyFormat(best.m, sk.fn, size, ver, best.mask);
+    return { size, matrix: best.m, version: ver, mask: best.mask };
+}
+
+function applyFormat(m, fn, size, ver, mask) {
+    const f = qrFormatBits(mask);
+    /* First copy: column 8 down the top-left, then row 8 across it. */
+    for (let i = 0; i <= 5; i++) m[i][8] = (f >> i) & 1;
+    m[7][8] = (f >> 6) & 1;
+    m[8][8] = (f >> 7) & 1;
+    m[8][7] = (f >> 8) & 1;
+    for (let i = 9; i < 15; i++) m[8][14 - i] = (f >> i) & 1;
+    /* Second copy: row 8 from the right edge, then column 8 up from the bottom. */
+    for (let i = 0; i < 8; i++) m[8][size - 1 - i] = (f >> i) & 1;
+    for (let i = 8; i < 15; i++) m[size - 15 + i][8] = (f >> i) & 1;
+    m[size - 8][8] = 1;
+    if (ver >= 7) {
+        const v = qrVersionBits(ver);
+        for (let i = 0; i < 18; i++) {
+            const b = (v >> i) & 1;
+            const a = Math.floor(i / 3), d = i % 3;
+            m[size - 11 + d][a] = b;
+            m[a][size - 11 + d] = b;
+        }
+    }
+}
+
+/* ---------- vault format -------------------------------------------------
+   back-stop-vault-1
+
+   { app, format, schema, exported,
+     kdf:  { alg:"PBKDF2-SHA256", iter, salt },      passphrase -> wrap key
+     wrap: { alg:"A256GCM", iv, ct },                 wrapped 32-byte data key
+     body: { alg:"A256GCM", comp:"gzip"|"none", iv, ct } }   the accounts
+
+   Envelope encryption, so the printed card can carry the raw data key while
+   the passphrase stays the everyday path. Rotating the data key invalidates
+   every previously printed card, which is why it is an explicit action.
+   ------------------------------------------------------------------------ */
+
+const FORMAT = "back-stop-vault-1";
+const ITER = 600000;
+const IDLE_MS = 5 * 60 * 1000;
+
+const tenc = new TextEncoder();
+const tdec = new TextDecoder();
+
+function b64(buf) {
+    const u = new Uint8Array(buf);
+    let s = "";
+    for (let i = 0; i < u.length; i += 4096) s += String.fromCharCode.apply(null, u.subarray(i, i + 4096));
+    return btoa(s);
+}
+function unb64(str) {
+    const t = atob(String(str).replace(/\s+/g, ""));
+    const u = new Uint8Array(t.length);
+    for (let i = 0; i < t.length; i++) u[i] = t.charCodeAt(i);
+    return u;
+}
+const rnd = n => crypto.getRandomValues(new Uint8Array(n));
+const aad = () => tenc.encode(FORMAT);
+
+/* ---------- recovery key text form ------------------------------------------
+   The key card is read by eye and retyped far more often than it is scanned, so
+   base64 was the wrong choice for it: mixed case plus + / = makes a 44 character
+   string that is very easy to get wrong, and a single slip fails as an opaque
+   "wrong key". The card now uses Crockford base32 instead - one case, and no
+   I L O U, with I and L folded to 1 and O to 0 on the way back in - followed by
+   two check characters so a typo is reported as a typo. Base64 keys are still
+   accepted on input so a card printed by 0.9.0 keeps working. */
+const C32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+const C32MAP = (() => {
+    const m = Object.create(null);
+    for (let i = 0; i < 32; i++) m[C32[i]] = i;
+    m.I = 1; m.L = 1; m.O = 0;
+    return m;
+})();
+
+function b32(bytes) {
+    let out = "", acc = 0, bits = 0;
+    for (const b of bytes) {
+        acc = (acc << 8) | b; bits += 8;
+        while (bits >= 5) { bits -= 5; out += C32[(acc >>> bits) & 31]; }
+    }
+    if (bits) out += C32[(acc << (5 - bits)) & 31];
+    return out;
+}
+function unb32(str) {
+    let acc = 0, bits = 0;
+    const out = [];
+    for (const ch of str) {
+        const v = C32MAP[ch];
+        if (v === undefined) throw new Error("the character " + ch + " is not in a recovery key");
+        acc = (acc << 5) | v; bits += 5;
+        if (bits >= 8) { bits -= 8; out.push((acc >>> bits) & 255); }
+    }
+    return new Uint8Array(out);
+}
+/* Ten bits of check, so roughly one slip in a thousand still gets through to
+   the decrypt and fails there. Enough to catch a hand transcription error. */
+async function keyCheck(raw) {
+    const h = new Uint8Array(await crypto.subtle.digest("SHA-256", raw));
+    return C32[h[0] & 31] + C32[h[1] & 31];
+}
+async function keyString(raw) { return b32(raw) + await keyCheck(raw); }
+
+async function parseKey(text) {
+    const s = String(text).trim().replace(/^BSK1:/i, "");
+    /* Fold the ambiguous letters here rather than only in unb32, so the two
+       check characters are compared in canonical form too. Without this, a
+       card read as O instead of 0 in the check pair is reported as a typo when
+       it is exactly the confusion this encoding is meant to absorb. */
+    const c = s.toUpperCase().replace(/[^0-9A-Z]/g, "")
+        .replace(/[ILO]/g, ch => (ch === "O" ? "0" : "1"));
+    let raw;
+    if (/[+/=]/.test(s) || c.length === 43 || c.length === 44) {
+        raw = unb64(s);                              /* card printed by 0.9.0 */
+    } else if (c.length === 54) {
+        raw = unb32(c.slice(0, 52));
+        if (await keyCheck(raw) !== c.slice(52)) {
+            throw new Error("that key has a typo in it, check it against the card a character at a time");
+        }
+    } else if (c.length === 52) {
+        raw = unb32(c);                              /* check digits dropped */
+    } else {
+        throw new Error("a recovery key is 54 characters, that one has " + c.length);
+    }
+    if (raw.length !== 32) throw new Error("a recovery key is 32 bytes, that one decodes to " + raw.length);
+    return raw;
+}
+
+function groups(s, n) {
+    const out = [];
+    for (let i = 0; i < s.length; i += n) out.push(s.slice(i, i + n));
+    return out;
+}
+
+async function deriveWrapKey(pass, salt, iter) {
+    const base = await crypto.subtle.importKey("raw", tenc.encode(pass.normalize("NFKC")), "PBKDF2", false, ["deriveKey"]);
+    return crypto.subtle.deriveKey(
+        { name: "PBKDF2", salt, iterations: iter, hash: "SHA-256" },
+        base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+}
+const importDataKey = raw =>
+    crypto.subtle.importKey("raw", raw, { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
+
+async function gcmEnc(key, bytes) {
+    const iv = rnd(12);
+    const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: aad() }, key, bytes);
+    return { alg: "A256GCM", iv: b64(iv), ct: b64(ct) };
+}
+async function gcmDec(key, o) {
+    const pt = await crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: unb64(o.iv), additionalData: aad() }, key, unb64(o.ct));
+    return new Uint8Array(pt);
+}
+
+async function deflate(bytes) {
+    if (typeof CompressionStream !== "function") return { comp: "none", data: bytes };
+    const cs = new CompressionStream("gzip");
+    const w = cs.writable.getWriter();
+    w.write(bytes); w.close();
+    const buf = await new Response(cs.readable).arrayBuffer();
+    return { comp: "gzip", data: new Uint8Array(buf) };
+}
+async function inflate(bytes, comp) {
+    if (comp !== "gzip") return bytes;
+    if (typeof DecompressionStream !== "function") throw new Error("this browser cannot read gzip");
+    const ds = new DecompressionStream("gzip");
+    const w = ds.writable.getWriter();
+    w.write(bytes); w.close();
+    return new Uint8Array(await new Response(ds.readable).arrayBuffer());
+}
+
+/* ---------- state --------------------------------------------------------
+   Plaintext lives here and only here. No localStorage: persist() is a stub
+   so nothing in the template can quietly write codes to this machine.
+   ------------------------------------------------------------------------ */
+
+function blankState() {
+    return { schema: APP.schema, app: APP.id, meta: { label: "", date: today() }, items: [] };
+}
+let state = blankState();
+
+const vault = { open: false, dataKey: null, rawKey: null, kdf: null, wrap: null };
+
+function persist() { /* deliberately empty: codes are never written to this browser */ }
+function restore() { store.del("state"); return false; }
+
+function wipe() {
+    if (typeof closeEditor === "function") closeEditor();
+    state = blankState();
+    vault.open = false;
+    vault.dataKey = null;
+    if (vault.rawKey) vault.rawKey.fill(0);
+    vault.rawKey = null;
+    vault.kdf = null;
+    vault.wrap = null;
+    ["#inPass", "#inNew1", "#inNew2", "#inKey"].forEach(s => { const n = $(s); if (n) n.value = ""; });
+}
+
+/* ---------- create / unlock / export ---------- */
+
+let pending = null;   // a loaded file waiting on a passphrase
+
+async function createVault(pass) {
+    const salt = rnd(16);
+    vault.rawKey = rnd(32);
+    vault.dataKey = await importDataKey(vault.rawKey);
+    const wk = await deriveWrapKey(pass, salt, ITER);
+    vault.wrap = await gcmEnc(wk, vault.rawKey);
+    vault.kdf = { alg: "PBKDF2-SHA256", iter: ITER, salt: b64(salt) };
+    vault.open = true;
+    state = blankState();
+}
+
+async function openWithPass(file, pass) {
+    const wk = await deriveWrapKey(pass, unb64(file.kdf.salt), file.kdf.iter);
+    const raw = await gcmDec(wk, file.wrap);          // throws on wrong passphrase
+    return adopt(file, raw);
+}
+async function openWithKey(file, raw) {
+    if (raw.length !== 32) throw new Error("a recovery key is 32 bytes");
+    return adopt(file, raw);
+}
+async function adopt(file, raw) {
+    const dk = await importDataKey(raw);
+    const body = await inflate(await gcmDec(dk, file.body), file.body.comp);
+    const d = JSON.parse(tdec.decode(body));
+    vault.rawKey = raw;
+    vault.dataKey = dk;
+    vault.kdf = file.kdf;
+    vault.wrap = file.wrap;
+    vault.open = true;
+    state = Object.assign(blankState(), d);
+    state.items = (state.items || []).map(i => ({
+        site: String(i.site || ""), user: String(i.user || ""),
+        codes: String(i.codes || ""), note: String(i.note || "")
+    }));
+}
+
+async function buildFile() {
+    const body = JSON.stringify({ schema: APP.schema, app: APP.id, meta: state.meta, items: state.items });
+    const z = await deflate(tenc.encode(body));
+    const b = await gcmEnc(vault.dataKey, z.data);
+    b.comp = z.comp;
+    return {
+        app: APP.id, format: FORMAT, schema: APP.schema, version: APP.version,
+        exported: new Date().toISOString(),
+        kdf: vault.kdf, wrap: vault.wrap, body: b
+    };
+}
+
+async function saveJson() {
+    if (!vault.open) return;
+    try {
+        const f = await buildFile();
+        download(fname("json"), JSON.stringify(f, null, 2), "application/json");
+        notify("Exported, encrypted");
+    } catch (e) { notify("Export failed: " + e.message, true); }
+}
+
+function loadJson(text) {
+    let d;
+    try { d = JSON.parse(text); }
+    catch (e) { return notify("That file is not valid JSON", true); }
+    if (!d || d.format !== FORMAT || !d.kdf || !d.wrap || !d.body)
+        return notify("That is not a back-stop vault file", true);
+    pending = d;
+    lockUi("open", "vault from " + (d.exported || "unknown date").slice(0, 10));
+    notify("Vault loaded, passphrase needed");
+}
+
+/* Lock re-seals the CURRENT state into an in-memory envelope before dropping
+   the keys, rather than holding the envelope it was opened from: that one is
+   stale the moment an account is edited, and reopening it would silently roll
+   the vault back. The held envelope is ciphertext and the data key is zeroed,
+   so reopening needs the passphrase or the key card exactly as before. */
+async function lockVault() {
+    if (!vault.open) return;
+    const count = state.items.length;
+    try {
+        pending = await buildFile();
+    } catch (e) {
+        if (!confirm("Could not re-seal the vault: " + e.message +
+                     "\n\nLock anyway? Anything not exported or printed is lost."))
+            return;
+        pending = null;
+    }
+    wipe();
+    render();
+    if (pending) {
+        lockUi("open", "locked, " + count + " sealed");
+        notify("Locked. Passphrase or key card reopens it.");
+    } else {
+        lockUi("idle");
+        notify("Locked", true);
+    }
+}
+
+function closeVault() {
+    if (vault.open && !confirm("Close and discard? Anything not exported or printed is lost.")) return;
+    pending = null;
+    wipe();
+    render();
+    lockUi("idle", "nothing open");
+    notify("Closed");
+}
+
+/* ---------- passphrase gate ---------- */
+
+function passNote(p) {
+    const words = p.trim().split(/\s+/).filter(Boolean).length;
+    if (!p) return ["", false];
+    if (p.length < 16) return ["too short: " + p.length + " of 16 characters minimum", false];
+    if (words < 5) return [p.length + " characters, " + words + " words. usable, but six or more words is the target", true];
+    return [p.length + " characters, " + words + " words. good", true];
+}
+
+/* ---------- ui ---------- */
+
+let blurOn = true;
+let idleT = null;
+
+function lockUi(mode, sub) {
+    $("#lockOpen").hidden = mode !== "open";
+    $("#lockNew").hidden = mode !== "new";
+    $("#lockIdle").hidden = mode !== "idle";
+    /* The paper textarea is a way in, not a mode, so it is closed by any mode
+       change rather than being one of them. */
+    if (mode !== "paper") $("#paperWrap").hidden = true;
+    if (sub !== undefined) $("#lockSub").textContent = sub || "";
+    $("#lockLog").textContent = "";
+}
+
+function bumpIdle() {
+    clearTimeout(idleT);
+    if (!vault.open) return;
+    idleT = setTimeout(async () => {
+        await lockVault();
+        notify("Locked after 5 minutes idle", true);
+    }, IDLE_MS);
+    const n = $("#idleNote");
+    if (n) n.textContent = "auto-locks after 5 min idle";
+}
+
+function render() {
+    const open = vault.open;
+    /* The actions panel only exists when there is a vault to act on, so the
+       buttons no longer need a disabled state at all. */
+    $("#panelStart").hidden = open;
+    $("#panelBar").hidden = !open;
+    $("#panelCtl").hidden = !open;
+    $("#panelVault").hidden = !open;
+    if (!open) {
+        $("#rows").textContent = "";
+        $("#acctFilter").value = "";
+        if ($("#lockNew").hidden && $("#lockOpen").hidden && $("#paperWrap").hidden) lockUi("idle");
+    } else {
+        renderRows();
+    }
+    bumpIdle();
+}
+
+function codeCount(item) {
+    return String(item.codes || "").split(/\n/).filter(x => x.trim()).length;
+}
+
+function renderRows() {
+    const host = $("#rows");
+    host.textContent = "";
+    /* A dialog close event can land during a wipe, so never paint a list from
+       state that is on its way out. */
+    if (!vault.open) return;
+    const q = ($("#acctFilter").value || "").trim().toLowerCase();
+
+    /* Index is carried on the node rather than closed over, because the filter
+       means the visible order is not the order of state.items. */
+    let shown = 0;
+    state.items.forEach((item, idx) => {
+        if (q && !(item.site + " " + item.user + " " + (item.note || "")).toLowerCase().includes(q)) return;
+        host.appendChild(rowFor(item, idx));
+        shown++;
+    });
+
+    if (!state.items.length) host.appendChild(el("div", "note", "No accounts yet. Add one."));
+    else if (!shown) host.appendChild(el("div", "note", "Nothing matches that filter."));
+    renderStat();
+}
+
+function rowFor(item, idx) {
+    const box = el("div", "acct");
+
+    box.appendChild(el("span", "acct-site", item.site || "(no provider)"));
+    box.appendChild(el("span", "acct-user", item.user || ""));
+
+    const c = codeCount(item);
+    const cnt = el("span", "acct-count" + (c ? "" : " zero"), c === 1 ? "1 code" : c + " codes");
+    box.appendChild(cnt);
+
+    const acts = el("div", "acct-actions noprint");
+    const edit = el("button", "btn btn-sm", "edit");
+    edit.type = "button";
+    edit.addEventListener("click", () => openEditor(idx));
+    acts.appendChild(edit);
+
+    const del = el("button", "btn btn-sm btn-danger", "remove");
+    del.type = "button";
+    del.addEventListener("click", () => removeAccount(idx));
+    acts.appendChild(del);
+    box.appendChild(acts);
+
+    /* The whole line is a hit target too, for touch. */
+    box.addEventListener("dblclick", () => openEditor(idx));
+    return box;
+}
+
+function removeAccount(idx) {
+    const item = state.items[idx];
+    if (!item) return;
+    const c = codeCount(item);
+    if (!confirm("Remove " + (item.site || "this account") + " and its " + c + " code" + (c === 1 ? "" : "s") + "?")) return;
+    state.items.splice(idx, 1);
+    renderRows();
+}
+
+/* ---------- edit dialog ------------------------------------------------------
+   Codes are held in the page only while this is open. It edits a copy, so
+   Cancel and Escape both leave the vault untouched, and a brand new account is
+   not pushed into state until Save. */
+
+let editIdx = -1;              /* -1 means the draft is a new account */
+const dlg = $("#dlgEdit");
+
+function openEditor(idx) {
+    const fresh = { site: "", user: "", codes: "", note: "" };
+    const item = idx >= 0 ? state.items[idx] : fresh;
+    if (!item) return;
+    editIdx = idx;
+    $("#edSite").value = item.site || "";
+    $("#edUser").value = item.user || "";
+    $("#edNote").value = item.note || "";
+    $("#edCodes").value = item.codes || "";
+    $("#dlgTitle").textContent = idx >= 0 ? "Edit account" : "New account";
+    $("#dlgStat").textContent = idx >= 0 ? "" : "not saved yet";
+    $("#edDelete").hidden = idx < 0;
+    setEdBlur(true);
+    edCount();
+    dlg.showModal();
+    $("#edSite").focus();
+    bumpIdle();
+}
+
+function closeEditor() {
+    /* Clear before closing so the codes are not sitting in a hidden node. */
+    $("#edCodes").value = "";
+    $("#edSite").value = "";
+    $("#edUser").value = "";
+    $("#edNote").value = "";
+    editIdx = -1;
+    if (dlg.open) dlg.close();
+}
+
+function edCount() {
+    const c = $("#edCodes").value.split(/\n/).filter(x => x.trim()).length;
+    $("#edCount").textContent = c === 1 ? "1 code" : c + " codes";
+}
+
+function setEdBlur(on) { $("#edCodes").classList.toggle("blurred", on && blurOn); }
+
+function saveEditor() {
+    const draft = {
+        site: $("#edSite").value.trim(),
+        user: $("#edUser").value.trim(),
+        note: $("#edNote").value.trim(),
+        /* Providers hand codes over in every layout going. Normalise the line
+           endings and drop blank lines, leave the codes themselves alone. */
+        codes: $("#edCodes").value.replace(/\r\n?/g, "\n").split("\n").map(x => x.trim()).filter(Boolean).join("\n")
+    };
+    if (!draft.site && !draft.user && !draft.codes) { closeEditor(); renderRows(); return; }
+    if (editIdx >= 0 && state.items[editIdx]) state.items[editIdx] = draft;
+    else state.items.push(draft);
+    closeEditor();
+    renderRows();
+}
+
+function renderStat() {
+    const codes = state.items.reduce((t, i) => t + codeCount(i), 0);
+    $("#vaultStat").textContent =
+        state.items.length + (state.items.length === 1 ? " account, " : " accounts, ") +
+        codes + (codes === 1 ? " code" : " codes");
+}
+
+function reblurAll() { setEdBlur(true); }
+
+/* ---------- key card ---------- */
+
+async function printCard() {
+    if (!vault.rawKey) return;
+    const ks = await keyString(vault.rawKey);
+    const key = groups(ks, 4).join(" ");
+    $("#cardKey").textContent =
+        "recovery key, Crockford base32, 52 characters plus 2 check characters\n\n" + key;
+    /* The same key as a symbol, so it can be scanned and pasted instead of
+       retyped. Small payload, so a low version and a generous module size. */
+    const qh = $("#cardQr");
+    qh.textContent = "";
+    try {
+        const node = qrNode(ks);
+        node.svg.setAttribute("width", "48mm");
+        node.svg.setAttribute("height", "48mm");
+        qh.appendChild(node.svg);
+        qh.hidden = false;
+    } catch (e) { qh.hidden = true; }
+    $("#cardMeta").textContent =
+        "vault label : " + (state.meta.label || "(none)") + "\n" +
+        "printed     : " + new Date().toISOString() + "\n" +
+        "format      : " + FORMAT + "\n" +
+        "kdf         : PBKDF2-SHA256, " + (vault.kdf ? vault.kdf.iter : ITER) + " iterations\n" +
+        "typing it   : one case only, and the letters I L O U never appear. If you\n" +
+        "              read an I or an L type 1, if you read an O type 0. Spaces\n" +
+        "              and line breaks are ignored.\n" +
+        "store this card apart from the vault file and apart from any printed ciphertext";
+    document.documentElement.setAttribute("data-print", "card");
+    $("#panelCardPrint").hidden = false;
+    printTitle("key-card");
+    const clean = () => {
+        document.documentElement.removeAttribute("data-print");
+        $("#panelCardPrint").hidden = true;
+        $("#cardKey").textContent = "";
+        $("#cardQr").textContent = "";
+        $("#cardMeta").textContent = "";
+        printTitleRestore();
+    };
+    /* The key is on screen only while the dialog is up. onafterprint is the
+       reliable signal; the timer covers browsers that never fire it. */
+    window.addEventListener("afterprint", clean, { once: true });
+    setTimeout(clean, 60000);
+    window.print();
+}
+
+/* ---------- paper backup -------------------------------------------------
+   The printed page carries the vault as a compact binary envelope rather than
+   the JSON file, because base64 of JSON of base64 wastes about a third of the
+   symbol. Layout, all fixed width except the tail:
+
+     "BS" magic                 2
+     envelope version           1
+     kdf iterations / 1000      2   big endian
+     kdf salt                  16
+     wrapped key iv            12
+     wrapped key + tag         48
+     body iv                   12
+     flags (bit 0: gzip)        1
+     body ciphertext + tag      rest
+
+   Base64 of that, split across as many symbols as needed, each prefixed
+   "BS1:i/n:" so they can be scanned in any order. Nothing here is secret: the
+   envelope is exactly what the exported file holds, minus the JSON.
+   ------------------------------------------------------------------------ */
+
+const ENV_VER = 1;
+const ENV_FIXED = 2 + 1 + 2 + 16 + 12 + 48 + 12 + 1;
+const QR_MAX_VERSION = 25;   // keeps printed modules large enough to scan
+
+function envBuild(file) {
+    const salt = unb64(file.kdf.salt), wIv = unb64(file.wrap.iv), wCt = unb64(file.wrap.ct);
+    const bIv = unb64(file.body.iv), bCt = unb64(file.body.ct);
+    if (salt.length !== 16 || wIv.length !== 12 || wCt.length !== 48 || bIv.length !== 12)
+        throw new Error("unexpected field size in this vault");
+    if (file.kdf.iter % 1000 || file.kdf.iter > 65535000)
+        throw new Error("iteration count cannot be written to paper");
+    const iterK = file.kdf.iter / 1000;
+    const out = new Uint8Array(ENV_FIXED + bCt.length);
+    let o = 0;
+    out[o++] = 66; out[o++] = 83;            // "BS"
+    out[o++] = ENV_VER;
+    out[o++] = (iterK >> 8) & 255; out[o++] = iterK & 255;
+    out.set(salt, o); o += 16;
+    out.set(wIv, o); o += 12;
+    out.set(wCt, o); o += 48;
+    out.set(bIv, o); o += 12;
+    out[o++] = file.body.comp === "gzip" ? 1 : 0;
+    out.set(bCt, o);
+    return out;
+}
+
+function envParse(bytes) {
+    if (bytes.length <= ENV_FIXED) throw new Error("that backup is truncated");
+    if (bytes[0] !== 66 || bytes[1] !== 83) throw new Error("that is not a back-stop backup");
+    if (bytes[2] !== ENV_VER) throw new Error("that backup was written by a newer version");
+    let o = 3;
+    const iter = ((bytes[3] << 8) | bytes[4]) * 1000;
+    o = 5;
+    const take = n => { const v = bytes.subarray(o, o + n); o += n; return v; };
+    const salt = take(16), wIv = take(12), wCt = take(48), bIv = take(12);
+    const flags = bytes[o++];
+    const bCt = bytes.subarray(o);
+    return {
+        app: APP.id, format: FORMAT, schema: APP.schema, exported: "from paper",
+        kdf: { alg: "PBKDF2-SHA256", iter, salt: b64(salt) },
+        wrap: { alg: "A256GCM", iv: b64(wIv), ct: b64(wCt) },
+        body: { alg: "A256GCM", comp: (flags & 1) ? "gzip" : "none", iv: b64(bIv), ct: b64(bCt) }
+    };
+}
+
+const qrBytesFor = v => Math.floor((QR_CAP[v - 1] * 8 - 4 - (v < 10 ? 8 : 16)) / 8);
+
+function qrChunks(text) {
+    const room = qrBytesFor(QR_MAX_VERSION);
+    for (let n = 1; n <= 24; n++) {
+        const per = room - ("BS1:" + n + "/" + n + ":").length;
+        if (per <= 0) break;
+        if (per * n >= text.length) {
+            const size = Math.ceil(text.length / n);
+            const out = [];
+            for (let i = 0; i < n; i++)
+                out.push("BS1:" + (i + 1) + "/" + n + ":" + text.slice(i * size, (i + 1) * size));
+            return out;
+        }
+    }
+    throw new Error("this vault is too large for a paper backup");
+}
+
+function qrJoin(text) {
+    const re = /BS1:(\d+)\/(\d+):([A-Za-z0-9+/=]+)/g;
+    const found = new Map();
+    let n = 0, m;
+    while ((m = re.exec(text)) !== null) { n = parseInt(m[2], 10); found.set(parseInt(m[1], 10), m[3]); }
+    if (!n) throw new Error("no back-stop codes found in that text");
+    const parts = [];
+    for (let i = 1; i <= n; i++) {
+        if (!found.has(i)) throw new Error("code " + i + " of " + n + " is missing");
+        parts.push(found.get(i));
+    }
+    return parts.join("");
+}
+
+const SVGNS = "http://www.w3.org/2000/svg";
+
+/* Printed edge of a backup symbol. A4 at 12mm margins leaves 186mm of
+   printable width and 273mm of height, and the page also carries a masthead,
+   a heading, intro prose and a caption, so this is deliberately well short of
+   the width: the symbol has to lose to the page, not the other way round. At
+   this size the densest symbol the tool will emit is still about 1.3mm a
+   module, many times what a phone camera resolves. */
+const QR_PRINT_MM = 151;
+
+function qrNode(text) {
+    const q = qrEncode(text);
+    const qz = 4, dim = q.size + qz * 2;
+    let d = "";
+    for (let r = 0; r < q.size; r++) for (let c = 0; c < q.size; c++)
+        if (q.matrix[r][c]) d += "M" + (c + qz) + " " + (r + qz) + "h1v1h-1z";
+    const svg = document.createElementNS(SVGNS, "svg");
+    svg.setAttribute("viewBox", "0 0 " + dim + " " + dim);
+    svg.setAttribute("width", QR_PRINT_MM + "mm");
+    svg.setAttribute("height", QR_PRINT_MM + "mm");
+    svg.setAttribute("shape-rendering", "crispEdges");
+    const bg = document.createElementNS(SVGNS, "rect");
+    bg.setAttribute("width", String(dim));
+    bg.setAttribute("height", String(dim));
+    bg.setAttribute("fill", "#fff");
+    svg.appendChild(bg);
+    const path = document.createElementNS(SVGNS, "path");
+    path.setAttribute("d", d);
+    path.setAttribute("fill", "#000");
+    svg.appendChild(path);
+    return { svg, version: q.version, modules: q.size };
+}
+
+/* ---------- plaintext sheet ----------------------------------------------
+   The one action that puts every code on paper in the clear. Rendered into a
+   dedicated block rather than unhiding the code fields, so the print rule that
+   strips those fields stays absolute for every other path.
+   ------------------------------------------------------------------------ */
+
+function printPlain() {
+    if (!vault.open) return;
+    const codes = state.items.reduce((n, i) => n + i.codes.split(/\n/).filter(x => x.trim()).length, 0);
+    if (!codes) return notify("Nothing to print yet", true);
+    if (!confirm("This prints all " + codes + " codes as readable text.\n\n" +
+                 "The sheet is then equivalent to the codes themselves, so it needs a " +
+                 "safe, not a folder. Print to paper on a local printer: print to PDF " +
+                 "writes plaintext to disk.\n\nContinue?")) return;
+
+    $("#plainHead").textContent =
+        "PLAINTEXT RECOVERY CODES - treat this sheet as the codes themselves\n" +
+        "vault   : " + (state.meta.label || "(unlabelled)") + "\n" +
+        "printed : " + new Date().toISOString() + "\n" +
+        "contents: " + state.items.length + " accounts, " + codes + " codes";
+
+    const host = $("#plainCols");
+    host.textContent = "";
+    state.items.forEach(item => {
+        const lines = item.codes.split(/\n/).map(x => x.trim()).filter(Boolean);
+        if (!lines.length) return;
+        const box = el("div", "plain-acct");
+        box.appendChild(el("div", "plain-site", (item.site || "(unnamed)") + (item.user ? "  " + item.user : "")));
+        box.appendChild(el("div", "plain-codes", lines.join("\n")));
+        host.appendChild(box);
+    });
+
+    document.documentElement.setAttribute("data-print", "plain");
+    $("#panelPlainPrint").hidden = false;
+    /* Named so it is obvious in a file listing what this one is. */
+    printTitle("PLAINTEXT-CODES");
+    const clean = () => {
+        document.documentElement.removeAttribute("data-print");
+        $("#panelPlainPrint").hidden = true;
+        $("#plainHead").textContent = "";
+        host.textContent = "";
+        printTitleRestore();
+    };
+    window.addEventListener("afterprint", clean, { once: true });
+    setTimeout(clean, 60000);
+    window.print();
+}
+
+async function printBackup() {
+    if (!vault.open) return;
+    let chunks, env;
+    try {
+        env = envBuild(await buildFile());
+        chunks = qrChunks(b64(env));
+    } catch (e) { return notify(e.message, true); }
+
+    const host = $("#qrPages");
+    host.textContent = "";
+    const stamp = new Date().toISOString();
+    chunks.forEach((text, i) => {
+        const page = el("div", "qr-page");
+        const frame = el("div", "qr-frame");
+        let node;
+        try { node = qrNode(text); }
+        catch (e) { notify("Could not build the code: " + e.message, true); throw e; }
+        frame.appendChild(node.svg);
+        page.appendChild(frame);
+        page.appendChild(el("div", "log qr-cap",
+            "code " + (i + 1) + " of " + chunks.length +
+            "   qr version " + node.version + ", " + node.modules + " modules, error level M" +
+            "\nvault  : " + (state.meta.label || "(unlabelled)") +
+            "\nprinted: " + stamp +
+            "\nsize   : " + env.length + " bytes encrypted, " + state.items.length + " accounts"));
+        if (i === chunks.length - 1) {
+            page.appendChild(el("div", "prose qr-note",
+                "Envelope after base64 decoding, all lengths in bytes: magic BS (2), " +
+                "envelope version (1), PBKDF2 iterations divided by 1000 big endian (2), " +
+                "PBKDF2-HMAC-SHA256 salt (16), AES-256-GCM nonce for the wrapped key (12), " +
+                "wrapped 32 byte data key with its 16 byte tag (48), AES-256-GCM nonce for " +
+                "the body (12), flags with bit 0 set when the body is gzipped (1), then the " +
+                "body ciphertext and tag. The additional authenticated data for both is the " +
+                "ASCII string " + FORMAT + ". Concatenate the codes in order before decoding."));
+        }
+        host.appendChild(page);
+    });
+
+    document.documentElement.setAttribute("data-print", "qr");
+    $("#panelQrPrint").hidden = false;
+    printTitle("encrypted-backup");
+    const clean = () => {
+        document.documentElement.removeAttribute("data-print");
+        $("#panelQrPrint").hidden = true;
+        host.textContent = "";
+        printTitleRestore();
+    };
+    window.addEventListener("afterprint", clean, { once: true });
+    setTimeout(clean, 60000);
+    window.print();
+    notify(chunks.length === 1 ? "One code, " + env.length + " bytes" : chunks.length + " codes to print");
+}
+
+
+/* ---------- meta binding ---------- */
+
+$("#mLabel").addEventListener("input", e => { state.meta.label = e.target.value; });
+
+/* ---------- toolbar ---------- */
+
+$("#btnSave").addEventListener("click", saveJson);
+$("#btnLoad").addEventListener("click", () => $("#fileIn").click());
+$("#fileIn").addEventListener("change", e => {
+    if (e.target.files[0]) read(e.target.files[0], loadJson);
+    e.target.value = "";
+});
+$("#btnCard").addEventListener("click", printCard);
+$("#btnPaper").addEventListener("click", printBackup);
+$("#btnPlain").addEventListener("click", printPlain);
+
+$("#btnPaperIn").addEventListener("click", () => {
+    const showing = !$("#paperWrap").hidden;
+    if (showing) { $("#inPaper").value = ""; lockUi("idle"); return; }
+    lockUi("paper", pending ? undefined : "reading a printed backup");
+    $("#lockIdle").hidden = true;
+    $("#paperWrap").hidden = false;
+    $("#inPaper").focus();
+});
+$("#btnPaperCancel").addEventListener("click", () => {
+    $("#inPaper").value = "";
+    $("#paperLog").textContent = "";
+    lockUi(pending ? "open" : "idle");
+});
+$("#btnPaperLoad").addEventListener("click", () => {
+    let file;
+    try { file = envParse(unb64(qrJoin($("#inPaper").value))); }
+    catch (e) { $("#paperLog").textContent = e.message; return notify("Could not read that backup", true); }
+    $("#inPaper").value = "";
+    pending = file;
+    lockUi("open", "vault from a printed backup");
+    notify("Backup read, passphrase or key needed");
+}); 
+$("#btnReset").addEventListener("click", lockVault);
+$("#btnClose").addEventListener("click", closeVault);
+
+$("#btnNew").addEventListener("click", () => {
+    if (vault.open && !confirm("Close the open vault and start a new one? Anything not exported or printed is lost.")) return;
+    pending = null;
+    wipe();
+    render();
+    lockUi("new", "new vault");
+    $("#inNew1").focus();
+});
+$("#btnCancelNew").addEventListener("click", () => { $("#inNew1").value = ""; $("#inNew2").value = ""; lockUi(pending ? "open" : "idle", pending ? undefined : "nothing open"); });
+
+[["#inNew1"], ["#inNew2"]].forEach(([sel]) => $(sel).addEventListener("input", () => {
+    const [txt] = passNote($("#inNew1").value);
+    $("#passMeter").textContent = txt;
+}));
+
+$("#btnCreate").addEventListener("click", async () => {
+    const p1 = $("#inNew1").value, p2 = $("#inNew2").value;
+    const [, ok] = passNote(p1);
+    if (!ok) return notify("Passphrase is too short", true);
+    if (p1 !== p2) return notify("The two passphrases do not match", true);
+    $("#btnCreate").disabled = true;
+    $("#passMeter").textContent = "deriving key, this takes a moment";
+    try {
+        await createVault(p1);
+        $("#inNew1").value = ""; $("#inNew2").value = "";
+        render();
+        notify("Vault created. Print the key card and store it separately.");
+    } catch (e) { notify("Could not create the vault: " + e.message, true); }
+    $("#btnCreate").disabled = false;
+});
+
+$("#btnBreak").addEventListener("click", () => {
+    const w = $("#breakWrap");
+    w.hidden = !w.hidden;
+    if (!w.hidden) $("#inKey").focus();
+});
+
+$("#btnUnlock").addEventListener("click", async () => {
+    if (!pending) return notify("Open a vault file first", true);
+    const p = $("#inPass").value;
+    if (!p) return notify("Passphrase needed", true);
+    $("#btnUnlock").disabled = true;
+    $("#lockLog").textContent = "deriving key, this takes a moment";
+    try {
+        await openWithPass(pending, p);
+        $("#inPass").value = "";
+        pending = null;
+        render();
+        notify("Unlocked");
+    } catch (e) {
+        $("#lockLog").textContent = "wrong passphrase, or the file is damaged";
+        notify("Could not unlock", true);
+    }
+    $("#btnUnlock").disabled = false;
+});
+
+$("#btnUnlockKey").addEventListener("click", async () => {
+    if (!pending) return notify("Open a vault file first", true);
+    const typed = $("#inKey").value.trim();
+    if (!typed) return notify("Recovery key needed", true);
+    let raw;
+    try { raw = await parseKey(typed); }
+    catch (e) {
+        $("#lockLog").textContent = e.message;
+        return notify("That key is not readable", true);
+    }
+    try {
+        await openWithKey(pending, raw);
+        $("#inKey").value = "";
+        pending = null;
+        render();
+        notify("Unlocked with the recovery key");
+    } catch (e) {
+        $("#lockLog").textContent = "that key does not open this vault";
+        notify("Could not unlock", true);
+    }
+});
+
+$("#btnAdd").addEventListener("click", () => openEditor(-1));
+$("#acctFilter").addEventListener("input", renderRows);
+
+$("#edSave").addEventListener("click", saveEditor);
+$("#edCancel").addEventListener("click", () => { closeEditor(); renderRows(); });
+$("#edDelete").addEventListener("click", () => {
+    const idx = editIdx;
+    closeEditor();
+    if (idx >= 0) removeAccount(idx);
+    renderRows();
+});
+$("#edCodes").addEventListener("input", () => { edCount(); bumpIdle(); });
+$("#edCodes").addEventListener("focus", () => setEdBlur(false));
+$("#edCodes").addEventListener("blur", () => setEdBlur(true));
+/* Escape fires close directly, bypassing the buttons, so clear there too. */
+dlg.addEventListener("close", () => { $("#edCodes").value = ""; editIdx = -1; renderRows(); });
+dlg.addEventListener("cancel", e => { e.preventDefault(); closeEditor(); renderRows(); });
+
+(() => {
+    const b = $("#edShow");
+    const on = () => setEdBlur(false), off = () => setEdBlur(true);
+    ["pointerdown"].forEach(e => b.addEventListener(e, on));
+    ["pointerup", "pointerleave", "pointercancel", "blur"].forEach(e => b.addEventListener(e, off));
+    b.addEventListener("keydown", e => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); on(); } });
+    b.addEventListener("keyup", off);
+})();
+
+toggle($("#tgBlur"), on => { blurOn = on; reblurAll(); });
+
+/* ---------- leakage guards ---------- */
+
+/* An unhandled drop navigates the tab to the dropped file, which would throw
+   away an unlocked vault. Swallow it, and treat a dropped vault as an open. */
+document.addEventListener("dragover", e => e.preventDefault());
+document.addEventListener("drop", e => {
+    e.preventDefault();
+    const f = e.dataTransfer && e.dataTransfer.files[0];
+    if (f) read(f, loadJson);
+});
+
+window.addEventListener("beforeunload", e => {
+    if (!vault.open) return;
+    e.preventDefault();
+    e.returnValue = "";
+});
+
+document.addEventListener("visibilitychange", () => { if (document.hidden) reblurAll(); });
+window.addEventListener("blur", reblurAll);
+["pointerdown", "keydown"].forEach(e => document.addEventListener(e, bumpIdle, true));
+
+document.addEventListener("keydown", e => {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    const k = e.key.toLowerCase();
+    if (k === "s") { e.preventDefault(); saveJson(); }
+    if (k === "o") { e.preventDefault(); $("#fileIn").click(); }
+});
+
+/* ---------- version, in the footer only ---------- */
+$("#footVer").textContent = "v" + APP.version;
+
+
+restore();
+render();
+</script>
+</body>
+</html>
