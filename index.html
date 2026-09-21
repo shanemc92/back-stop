@@ -1129,7 +1129,7 @@ textarea.field.blurred {
 #acctFilter { max-width: 260px; }
 
 /* Edit dialog. A native <dialog> so focus trapping and Escape come free. */
-#dlgEdit {
+#dlgEdit, #dlgRekey {
     border: 1px solid var(--line);
     background: var(--bg-panel, var(--bg));
     color: var(--fg);
@@ -1138,7 +1138,7 @@ textarea.field.blurred {
     width: min(620px, calc(100vw - 32px));
     max-height: calc(100vh - 48px);
 }
-#dlgEdit::backdrop { background: rgba(0, 0, 0, 0.6); }
+#dlgEdit::backdrop, #dlgRekey::backdrop { background: rgba(0, 0, 0, 0.6); }
 .dlg-body { padding: 16px; }
 .dlg-foot { display: flex; gap: 8px; align-items: center; padding: 12px 16px; border-top: 1px solid var(--line); }
 
@@ -1150,7 +1150,7 @@ textarea.field.blurred {
 
     /* The dialog lives in the top layer, which some engines paint over a
        printed page. Removed outright on every print path. */
-    #dlgEdit { display: none !important; }
+    #dlgEdit, #dlgRekey { display: none !important; }
 
     /* The print panels are multi-page by design, so they must be allowed to
        break. Inherited from the template's blanket .panel rule, which assumes
@@ -1210,6 +1210,21 @@ textarea.field.blurred {
 .plain-acct { break-inside: avoid; page-break-inside: avoid; margin: 0 0 5mm; }
 .plain-site { font-weight: 600; }
 .plain-codes { white-space: pre-wrap; color: var(--fg-dim); }
+/* Notes are prose, so they wrap and use the body face; codes stay a rigid
+   mono block. */
+.plain-body {
+    font-family: var(--font);
+    font-size: 9pt;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin-top: 3px;
+    padding-left: 6px;
+    border-left: 1px solid #999;
+    color: var(--fg-dim);
+}
+/* Spans the columns: prose in a narrow 3-column flow is unreadable. */
+.plain-vaultnote { break-inside: avoid; margin: 0 0 5mm; }
 /* The key card and the symbol captions are laid out as fixed-width blocks, so
    their line breaks have to survive. */
 #cardKey, #cardMeta, .qr-cap { white-space: pre-wrap; }
@@ -1223,6 +1238,8 @@ textarea.field.blurred {
     html[data-print="plain"] .plain-head { font-size: 9pt; }
     html[data-print="plain"] .plain-cols { font-size: 9pt; line-height: 1.35; }
     html[data-print="plain"] .plain-codes { color: #000; }
+    html[data-print="plain"] .plain-body { color: #000; border-left-color: #666; }
+    html[data-print="plain"] .plain-vaultnote { column-span: all; }
 
     html[data-print="qr"] #pane-vault > .panel:not(#panelQrPrint),
     html[data-print="qr"] #pane-about,
@@ -1448,6 +1465,7 @@ textarea.field.blurred {
                 <button class="btn" id="btnPaper">Print backup</button>
                 <button class="btn" id="btnCard">Print key card</button>
                 <button class="btn btn-danger" id="btnPlain">Print in the clear</button>
+                <button class="btn" id="btnRekey">Change passphrase</button>
                 <div class="spacer"></div>
                 <button class="btn btn-warn" id="btnReset">Lock</button>
                 <button class="btn btn-danger" id="btnClose">Close</button>
@@ -1470,9 +1488,17 @@ textarea.field.blurred {
                 <span class="sub" id="idleNote"></span>
             </div>
             <div class="grid" style="margin-top:12px">
-                <label class="f">Vault label<input type="text" class="field" id="mLabel" placeholder="Used for the filename only, not secret" autocomplete="off" spellcheck="false"></label>
+                <label class="f">Vault label<input type="text" class="field" id="mLabel" placeholder="Used for the file name only, not secret" autocomplete="off" spellcheck="false"></label>
             </div>
-            <div class="note" style="margin-top:10px">A field you are typing into cannot be blurred and stay usable, so the field you have focused is always legible. Everything else is covered. Hold "show" on a row to read it.</div>
+            <!-- Outside the grid: inside it the note became a narrow middle
+                 column with its button floating beside it. -->
+            <label class="f" style="margin-top:12px">Vault note - encrypted and treated as secret, so it is blurred on screen and only ever printed on the plaintext sheet.
+                <textarea class="field code" id="mNote" rows="3" placeholder="Anything that belongs with the vault as a whole rather than one account" autocomplete="off" spellcheck="false" autocapitalize="off"></textarea>
+            </label>
+            <div class="row" style="margin-top:8px">
+                <button class="btn btn-sm" id="mNoteShow" type="button" title="Hold to reveal">show</button>
+            </div>
+            <div class="note" style="margin-top:10px">Codes and notes are blurred on screen. Hold show to read one. The field you are typing in stays readable, since a blurred field cannot be typed into.</div>
         </div>
 
         <div class="panel" id="panelVault" hidden>
@@ -1499,10 +1525,7 @@ textarea.field.blurred {
         <div class="panel" id="panelQrPrint" hidden>
             <div class="panel-head"><h2>back-stop encrypted backup</h2></div>
             <div class="prose">
-                The codes below are this vault, encrypted. They are useless without
-                either the passphrase or the key card printed separately. Scan them with
-                any phone camera and paste the text into back-stop, or decrypt the
-                envelope directly with the format notes at the foot of this page.
+                The codes below are this vault, encrypted. On their own they reveal nothing: opening them needs the passphrase or the key card, which is stored separately. To restore, scan each code with a phone camera, open back-stop, choose From paper and paste in the text, in any order. Without back-stop, recover.py from the same repository opens them using only Python.
             </div>
             <div id="qrPages"></div>
         </div>
@@ -1510,18 +1533,35 @@ textarea.field.blurred {
         <!-- ================= key card, print only ================= -->
         <div class="panel" id="panelCardPrint" hidden>
             <div class="panel-head"><h2>back-stop recovery key card</h2></div>
-            <div class="prose">
-                This card is the raw data key for the vault file it was printed with. It
-                decrypts that vault without the passphrase. Anyone holding both this card
-                and the vault file can read every code in it, so this card must be stored
-                apart from the vault and apart from the printed ciphertext page.
-            </div>
+            <div class="prose">This card opens your back-stop vault without the passphrase. Anyone who has this card and a copy of the vault - the file or the printed backup - can read everything in it, so keep this card away from both.</div>
             <div class="log" id="cardKey" style="margin-top:12px"></div>
             <div class="qr-frame" id="cardQr" style="margin-top:12px"></div>
             <div class="log" id="cardMeta" style="margin-top:12px"></div>
         </div>
 
     </section>
+
+    <dialog id="dlgRekey" class="noprint" aria-labelledby="rkTitle">
+        <div class="panel-head" style="padding:14px 16px;margin:0">
+            <h2 id="rkTitle">Change passphrase</h2>
+        </div>
+        <div class="dlg-body">
+            <div class="grid">
+                <label class="f">New passphrase<input type="password" class="field" id="rkPass1" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
+                <label class="f">Again<input type="password" class="field" id="rkPass2" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
+            </div>
+            <div class="log" id="rkMeter" style="margin-top:10px"></div>
+            <label class="f" style="margin-top:14px;flex-direction:row;align-items:flex-start;gap:8px">
+                <input type="checkbox" id="rkRotate" style="margin-top:3px">
+                <span>Also replace the key. Do this if a key card has been lost or seen. Every key card printed so far stops working for this vault, so print a new one straight afterwards.</span>
+            </label>
+            <div class="note" style="margin-top:12px">This protects what you export or print from now on. It cannot reach copies that already exist: a file exported earlier still opens with the old passphrase, and a backup printed earlier still opens with the old passphrase or the old card. Destroy those if they are the reason you are changing it.</div>
+        </div>
+        <div class="dlg-foot">
+            <button class="btn btn-primary" id="rkSave" type="button">Change passphrase</button>
+            <button class="btn btn-ghost" id="rkCancel" type="button">Cancel</button>
+        </div>
+    </dialog>
 
     <dialog id="dlgEdit" class="noprint" aria-labelledby="dlgTitle">
         <div class="panel-head" style="padding:14px 16px;margin:0">
@@ -1534,6 +1574,9 @@ textarea.field.blurred {
                 <label class="f">Account<input type="text" class="field" id="edUser" placeholder="e.g. you@example.com" autocomplete="off" spellcheck="false" autocapitalize="off"></label>
             </div>
             <label class="f" style="margin-top:12px">Note<input type="text" class="field" id="edNote" placeholder="Not secret, e.g. where the authenticator lives" autocomplete="off" spellcheck="false"></label>
+            <label class="f" style="margin-top:12px">Notes for this account. Encrypted and treated as secret, for anything that is not a list of codes - a seed phrase, a break-glass password, how to actually use this.
+                <textarea class="field code" id="edBody" rows="5" autocomplete="off" spellcheck="false" autocapitalize="off"></textarea>
+            </label>
             <label class="f" style="margin-top:12px">Recovery codes, one per line
                 <textarea class="field code" id="edCodes" rows="8" autocomplete="off" spellcheck="false" autocapitalize="off"></textarea>
             </label>
@@ -1554,17 +1597,22 @@ textarea.field.blurred {
         <div class="panel">
             <div class="panel-head"><h2>About</h2></div>
             <div class="prose">
-                <p><b>What this is.</b> A store for account recovery codes, the one-time codes a provider gives you to get back in when your authenticator is gone. It holds them encrypted, exports an encrypted file, and prints a key card for offline storage. It is not a password manager and it is not a synchronised anything.</p>
-                <p><b>Where the data goes.</b> Nowhere. There is no network call, no analytics, and no localStorage: the content security policy in the head of this file blocks outbound connections outright, and the tool never writes your codes to this browser. Plaintext exists in this tab's memory and nowhere else. Closing the tab discards anything you have not exported.</p>
-                <p><b>Crypto.</b> The vault body is AES-256-GCM under a random data key. That data key is wrapped with a second AES-256-GCM key derived from your passphrase with PBKDF2-HMAC-SHA256 at 600,000 iterations over a random 16-byte salt. Both the wrapped key and the body live in the exported file. The printed card carries the raw data key, which is why it is a break-glass copy and not a convenience.</p>
-                <p><b>The paper backup.</b> Print backup writes the vault as one or more QR codes at error correction level M, carrying a compact binary envelope rather than the JSON file. Scan them with any phone camera and paste the text back in to restore, in any order. The symbols are ciphertext, so the printed page is worthless on its own: it needs the passphrase, or the key card, which is printed separately and must be stored apart from it. Roughly sixty codes fit in one symbol. The envelope layout is printed on the page so the backup can be decrypted with a short script and no browser.</p>
-                <p><b>Printing in the clear.</b> Print in the clear puts every code on paper as readable text, three dense columns to a sheet. It asks first. The sheet is then equivalent to the codes themselves and belongs in a safe, not a folder, but it is also the only backup that needs nothing at all at recovery time: no passphrase, no scanner, no working copy of this tool. For a last-resort copy that is the right trade. Keep it and the encrypted QR backup in different places.</p>
-                <p><b>Known limits.</b> PBKDF2 is GPU-friendly and the browser offers nothing better without a dependency, so a short passphrase will not survive an offline attack on the exported file. A field with keyboard focus is legible, because a blurred field cannot be typed into. Printing to PDF writes to disk and printing over a network hands your job to a spooler: print the card on paper, on a local printer, and check the queue is empty afterwards.</p>
+                <p><b>What this is.</b> A private, offline store for account recovery codes - the one-time codes a service gives you for when you lose your authenticator - and anything else you need to survive losing your devices, such as break-glass passwords or a seed phrase. It is not a password manager, and nothing syncs.</p>
+                <p><b>Getting started.</b> Create a vault with a passphrase of six or more unrelated words, then add each account and paste in its codes. Before you close the tab, keep a copy: export the file, print a backup, or both. Then print the key card and store it somewhere apart from everything else.</p>
+                <p><b>Where your data goes.</b> Nowhere. This page cannot connect to the internet and never saves your codes in the browser. Everything lives in this tab, so anything you have not exported or printed is gone when you close it.</p>
+                <p><b>Your backups.</b> The <b>exported file</b> is encrypted and opens in this tool with your passphrase. The <b>printed backup</b> is encrypted QR codes: scan them with a phone camera and paste the text into From paper. The <b>plaintext sheet</b> is every code in readable text. It needs nothing to use, which also means anyone who finds it has your codes, so it belongs in a safe. Keep each in a different place.</p>
+                <p><b>The key card.</b> The key card opens your vault without the passphrase. That makes it your way back in if you forget the passphrase - and it means the card must be kept apart from your exported file and printed backup, because together they give anyone full access.</p>
+                <p><b>If you forget your passphrase.</b> Open the vault with the key card, choose Change passphrase to set a new one, then export or print again. If a key card is lost or seen by someone else, use Change passphrase with Also replace the key, and print a new card. Neither can reach copies made earlier, so destroy those if they are why you are changing it.</p>
+                <p><b>Backups on several sheets.</b> A large vault prints across more than one sheet, and every sheet is required: losing one loses the whole vault, not part of it. Keep the sheets together. For a copy somewhere else, print a second complete set.</p>
+                <p><b>Lock and close.</b> Lock hides the vault but keeps it in this tab, so your passphrase or key card reopens it. It also locks itself after five minutes idle. Close discards it.</p>
+                <p><b>Without this page.</b> If this page is ever unavailable, recover.py from the same repository opens an exported file or a scanned backup using only Python, with nothing to install.</p>
+                <p><b>Good to know.</b> Codes and notes are blurred on screen: hold show to read one, and a field you are typing in stays readable. Print on paper with a local printer - printing to PDF saves your codes to disk, and network printers can keep a copy of the job. Only the three print buttons print anything; pressing Ctrl+P on its own prints only a short notice.</p>
+                <p><b>How it is protected.</b> AES-256-GCM, with the key derived from your passphrase using PBKDF2-SHA256 at 600,000 rounds. That is the strongest the browser offers without extra software, but a short passphrase can still be broken with enough computing power, so length is what protects you. The full format is in the README.</p>
             </div>
         </div>
         <div class="panel">
             <div class="panel-head"><h2>Appearance</h2><span class="sub">design, mode, accent</span></div>
-            <div class="prose">Three controls in the top bar, saved between visits. Design sets the shape language and backdrop, mode sets the lightness, and the accent can be any hue. They combine freely, and the accent is re-lit per mode so it never drops below a readable contrast.</div>
+            <div class="prose">Three controls in the top bar. Design sets the shape and backdrop, mode sets light or dark, and the accent can be any colour. These three choices are the only thing this page ever saves in your browser.</div>
         </div>
     </section>
 
@@ -1572,7 +1620,7 @@ textarea.field.blurred {
 
 <footer class="footer">
     <span>back-stop</span>
-    <span class="ver" id="footVer">v1.1.0</span>
+    <span class="ver" id="footVer">v1.3.0</span>
     <span class="sep">&middot;</span>
     <span>MIT</span>
     <span class="sep">&middot;</span>
@@ -1594,7 +1642,7 @@ textarea.field.blurred {
 "use strict";
 
 /* ---------- app identity ---------- */
-const APP = { id: "back-stop", version: "1.1.0", schema: 1 };
+const APP = { id: "back-stop", version: "1.3.0", schema: 1 };
 
 /* ---------- dom helpers ---------- */
 const $  = s => document.querySelector(s);
@@ -1955,6 +2003,7 @@ function download(name, text, type) {
     setTimeout(() => { try { URL.revokeObjectURL(a.href); } catch (e) {} }, 1000);
 }
 function read(file, cb) {
+    if (file.size > MAX_FILE_BYTES) return notify("That file is far too large to be a vault", true);
     const r = new FileReader();
     r.onload = () => cb(String(r.result), file);
     r.onerror = () => notify("Could not read that file", true);
@@ -2327,6 +2376,19 @@ function applyFormat(m, fn, size, ver, mask) {
 
 const FORMAT = "back-stop-vault-1";
 const ITER = 600000;
+/* Iterations are read from the file, which is untrusted input. The floor
+   rejects a vault weakened below anything this tool writes; the ceiling stops
+   a crafted file hanging the tab. */
+const ITER_MIN = 100000, ITER_MAX = 10000000;
+function checkIter(n) {
+    if (!Number.isInteger(n)) throw new Error("the key derivation settings in that file are malformed");
+    if (n < ITER_MIN) throw new Error("that file asks for " + n + " key derivation rounds, below the " +
+                                      ITER_MIN + " minimum - it was not written by back-stop or has been altered");
+    if (n > ITER_MAX) throw new Error("that file asks for " + n + " key derivation rounds - refusing rather than hanging");
+}
+/* A real vault is a few kilobytes. This only stops a wrong or hostile file
+   exhausting memory before it is even parsed. */
+const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const IDLE_MS = 5 * 60 * 1000;
 
 const tenc = new TextEncoder();
@@ -2391,7 +2453,12 @@ async function keyCheck(raw) {
 async function keyString(raw) { return b32(raw) + await keyCheck(raw); }
 
 async function parseKey(text) {
-    const s = String(text).trim().replace(/^BSK1:/i, "");
+    /* A phone's copy-text-from-photo grabs the card's label with the key. The
+       label is safe to strip: "recovery key" contains an O, which Crockford
+       base32 never uses, so it cannot occur inside a real key, and a key has
+       no brackets. */
+    const s = String(text).trim().replace(/^BSK1:/i, "")
+        .replace(/recovery\s*key/gi, "").replace(/\([^)]*\)/g, "");
     /* Fold the ambiguous letters here rather than only in unb32, so the two
        check characters are compared in canonical form too. Without this, a
        card read as O instead of 0 in the check pair is reported as a typo when
@@ -2462,7 +2529,8 @@ async function inflate(bytes, comp) {
    ------------------------------------------------------------------------ */
 
 function blankState() {
-    return { schema: APP.schema, app: APP.id, meta: { label: "", date: today() }, items: [] };
+    return { schema: APP.schema, app: APP.id,
+             meta: { label: "", date: today(), note: "" }, items: [] };
 }
 let state = blankState();
 
@@ -2473,6 +2541,7 @@ function restore() { store.del("state"); return false; }
 
 function wipe() {
     if (typeof closeEditor === "function") closeEditor();
+    if (typeof closeRekey === "function") closeRekey();
     state = blankState();
     vault.open = false;
     vault.dataKey = null;
@@ -2498,7 +2567,25 @@ async function createVault(pass) {
     state = blankState();
 }
 
+async function rekey(pass, rotate) {
+    if (!vault.open) throw new Error("no vault is open");
+    if (rotate) {
+        const fresh = rnd(32);
+        const dk = await importDataKey(fresh);
+        if (vault.rawKey) vault.rawKey.fill(0);
+        vault.rawKey = fresh;
+        vault.dataKey = dk;
+    }
+    /* Fresh salt and the current iteration count every time, so rekeying also
+       lifts any vault still carrying an older, weaker setting. */
+    const salt = rnd(16);
+    const wk = await deriveWrapKey(pass, salt, ITER);
+    vault.wrap = await gcmEnc(wk, vault.rawKey);
+    vault.kdf = { alg: "PBKDF2-SHA256", iter: ITER, salt: b64(salt) };
+}
+
 async function openWithPass(file, pass) {
+    checkIter(file.kdf.iter);
     const wk = await deriveWrapKey(pass, unb64(file.kdf.salt), file.kdf.iter);
     const raw = await gcmDec(wk, file.wrap);          // throws on wrong passphrase
     return adopt(file, raw);
@@ -2519,8 +2606,10 @@ async function adopt(file, raw) {
     state = Object.assign(blankState(), d);
     state.items = (state.items || []).map(i => ({
         site: String(i.site || ""), user: String(i.user || ""),
-        codes: String(i.codes || ""), note: String(i.note || "")
+        codes: String(i.codes || ""), note: String(i.note || ""),
+        body: String(i.body || "")
     }));
+    state.meta.note = String(state.meta.note || "");
     sortItems();
 }
 
@@ -2551,6 +2640,8 @@ function loadJson(text) {
     catch (e) { return notify("That file is not valid JSON", true); }
     if (!d || d.format !== FORMAT || !d.kdf || !d.wrap || !d.body)
         return notify("That is not a back-stop vault file", true);
+    try { checkIter(d.kdf.iter); }
+    catch (e) { $("#lockLog").textContent = e.message; return notify("That vault file is not usable", true); }
     pending = d;
     lockUi("open", "vault from " + (d.exported || "unknown date").slice(0, 10));
     notify("Vault loaded, passphrase needed");
@@ -2640,8 +2731,18 @@ function render() {
     if (!open) {
         $("#rows").textContent = "";
         $("#acctFilter").value = "";
+        /* Cleared on lock as well as filled on open: these hold vault content
+           and must not persist in the DOM once the vault is closed. */
+        $("#mLabel").value = "";
+        $("#mNote").value = "";
         if ($("#lockNew").hidden && $("#lockOpen").hidden && $("#paperWrap").hidden) lockUi("idle");
     } else {
+        /* The fields were never filled from state, so opening a vault in a
+           fresh tab showed an empty label while state held one - and typing a
+           single character then silently replaced it. */
+        $("#mLabel").value = state.meta.label || "";
+        $("#mNote").value = state.meta.note || "";
+        setNoteBlur(true);
         renderRows();
     }
     bumpIdle();
@@ -2695,7 +2796,12 @@ function rowFor(item, idx) {
     box.appendChild(el("span", "acct-user", item.user || ""));
 
     const c = codeCount(item);
-    const cnt = el("span", "acct-count" + (c ? "" : " zero"), c === 1 ? "1 code" : c + " codes");
+    const hasBody = !!(item.body || "").trim();
+    let text = c === 1 ? "1 code" : c + " codes";
+    if (!c && hasBody) text = "notes only";
+    else if (hasBody) text += " + notes";
+    /* Only flag as empty when there is nothing at all - notes are content. */
+    const cnt = el("span", "acct-count" + (c || hasBody ? "" : " zero"), text);
     box.appendChild(cnt);
 
     const acts = el("div", "acct-actions noprint");
@@ -2740,6 +2846,7 @@ function openEditor(idx) {
     $("#edSite").value = item.site || "";
     $("#edUser").value = item.user || "";
     $("#edNote").value = item.note || "";
+    $("#edBody").value = item.body || "";
     $("#edCodes").value = item.codes || "";
     $("#dlgTitle").textContent = idx >= 0 ? "Edit account" : "New account";
     $("#dlgStat").textContent = idx >= 0 ? "" : "not saved yet";
@@ -2754,9 +2861,11 @@ function openEditor(idx) {
 function closeEditor() {
     /* Clear before closing so the codes are not sitting in a hidden node. */
     $("#edCodes").value = "";
+    $("#edBody").value = "";
     $("#edSite").value = "";
     $("#edUser").value = "";
     $("#edNote").value = "";
+    $("#edBody").value = "";
     editIdx = -1;
     if (dlg.open) dlg.close();
 }
@@ -2766,18 +2875,24 @@ function edCount() {
     $("#edCount").textContent = c === 1 ? "1 code" : c + " codes";
 }
 
-function setEdBlur(on) { $("#edCodes").classList.toggle("blurred", on && blurOn); }
+function setEdBlur(on) {
+    ["#edCodes", "#edBody"].forEach(id => $(id).classList.toggle("blurred", on && blurOn));
+}
+function setNoteBlur(on) { $("#mNote").classList.toggle("blurred", on && blurOn); }
 
 function saveEditor() {
     const draft = {
         site: $("#edSite").value.trim(),
         user: $("#edUser").value.trim(),
         note: $("#edNote").value.trim(),
+        /* Free text, so only the trailing whitespace goes: internal blank
+           lines and indentation are the user's formatting, not noise. */
+        body: $("#edBody").value.replace(/\r\n?/g, "\n").replace(/\s+$/, ""),
         /* Providers hand codes over in every layout going. Normalise the line
            endings and drop blank lines, leave the codes themselves alone. */
         codes: $("#edCodes").value.replace(/\r\n?/g, "\n").split("\n").map(x => x.trim()).filter(Boolean).join("\n")
     };
-    if (!draft.site && !draft.user && !draft.codes) { closeEditor(); renderRows(); return; }
+    if (!draft.site && !draft.user && !draft.codes && !draft.body) { closeEditor(); renderRows(); return; }
     if (editIdx >= 0 && state.items[editIdx]) state.items[editIdx] = draft;
     else state.items.push(draft);
     sortItems();
@@ -2792,16 +2907,18 @@ function renderStat() {
         codes + (codes === 1 ? " code" : " codes");
 }
 
-function reblurAll() { setEdBlur(true); }
+function reblurAll() { setEdBlur(true); setNoteBlur(true); }
 
 /* ---------- key card ---------- */
 
 async function printCard() {
     if (!vault.rawKey) return;
     const ks = await keyString(vault.rawKey);
-    const key = groups(ks, 4).join(" ");
-    $("#cardKey").textContent =
-        "recovery key, Crockford base32, 52 characters plus 2 check characters\n\n" + key;
+    const g = groups(ks, 4);
+    /* Broken on group boundaries by hand: left to wrap, a group was split
+       across two lines on paper. */
+    const key = [g.slice(0, 5), g.slice(5, 10), g.slice(10)].map(r => r.join("  ")).join("\n");
+    $("#cardKey").textContent = "RECOVERY KEY  (54 characters)\n\n" + key;
     /* The same key as a symbol, so it can be scanned and pasted instead of
        retyped. Small payload, so a low version and a generous module size. */
     const qh = $("#cardQr");
@@ -2813,15 +2930,24 @@ async function printCard() {
         qh.appendChild(node.svg);
         qh.hidden = false;
     } catch (e) { qh.hidden = true; }
+    /* Written for whoever finds this card, who may not be the person who
+       printed it and may be reading it in a hurry. How to use it comes first;
+       the format details that were here were no use to them, and the key
+       derivation line did not even apply, since the card skips the passphrase. */
     $("#cardMeta").textContent =
-        "vault label : " + (state.meta.label || "(none)") + "\n" +
-        "printed     : " + new Date().toISOString() + "\n" +
-        "format      : " + FORMAT + "\n" +
-        "kdf         : PBKDF2-SHA256, " + (vault.kdf ? vault.kdf.iter : ITER) + " iterations\n" +
-        "typing it   : one case only, and the letters I L O U never appear. If you\n" +
-        "              read an I or an L type 1, if you read an O type 0. Spaces\n" +
-        "              and line breaks are ignored.\n" +
-        "store this card apart from the vault file and apart from any printed ciphertext";
+        "TO USE IT\n" +
+        "  1. Open back-stop and choose From a file or From paper.\n" +
+        "  2. Choose Use recovery key instead.\n" +
+        "  3. Type the key above, or scan the square code and paste it.\n" +
+        "  4. Once in, choose Change passphrase to set a new passphrase.\n" +
+        "\n" +
+        "TYPING IT\n" +
+        "  Case and spaces do not matter. The letters I, L, O and U are never\n" +
+        "  used: if you see an I or an L, type 1. If you see an O, type 0.\n" +
+        "\n" +
+        "vault   : " + (state.meta.label || "(unlabelled)") + "\n" +
+        "printed : " + new Date().toISOString().slice(0, 10) + "\n" +
+        "This card stops working if the vault's key is later replaced.";
     document.documentElement.setAttribute("data-print", "card");
     $("#panelCardPrint").hidden = false;
     printTitle("key-card");
@@ -2923,18 +3049,40 @@ function qrChunks(text) {
     throw new Error("this vault is too large for a paper backup");
 }
 
+/* Kept in step with unpack_paper() in recover.py: the two must agree on what
+   counts as a complete, consistent set, and give the same guidance when it is
+   not. This is the path most people take, so it gets the full message. */
 function qrJoin(text) {
     const re = /BS1:(\d+)\/(\d+):([A-Za-z0-9+/=]+)/g;
     const found = new Map();
-    let n = 0, m;
-    while ((m = re.exec(text)) !== null) { n = parseInt(m[2], 10); found.set(parseInt(m[1], 10), m[3]); }
-    if (!n) throw new Error("no back-stop codes found in that text");
-    const parts = [];
-    for (let i = 1; i <= n; i++) {
-        if (!found.has(i)) throw new Error("code " + i + " of " + n + " is missing");
-        parts.push(found.get(i));
+    let total = 0, m;
+    while ((m = re.exec(text)) !== null) {
+        const i = parseInt(m[1], 10), n = parseInt(m[2], 10);
+        /* Chunks from two different backups would otherwise be joined into
+           garbage and fail as an opaque decryption error. */
+        if (total && n !== total)
+            throw new Error("these codes come from two different backups (" + total + " and " + n + " sheets)");
+        if (i < 1 || i > n)
+            throw new Error("a code claims to be sheet " + i + " of " + n + ", which cannot be right");
+        total = n;
+        found.set(i, m[3]);
     }
-    return parts.join("");
+    if (!total) throw new Error("no back-stop codes found in that text");
+    const missing = [];
+    for (let i = 1; i <= total; i++) if (!found.has(i)) missing.push(i);
+    if (missing.length) {
+        const sheets = ns => (ns.length === 1 ? "sheet " : "sheets ") + ns.join(", ");
+        const have = [...found.keys()].sort((a, b) => a - b);
+        throw new Error(
+            "This backup is " + total + " sheets and " + sheets(missing) +
+            (missing.length === 1 ? " is" : " are") + " not here. Scanned so far: " +
+            (have.length ? sheets(have) : "nothing yet") + ". Every sheet is required: the " +
+            "codes are one encrypted block, so a partial set decrypts to nothing rather than " +
+            "to some of the codes. Find " + (missing.length === 1 ? "it" : "them") +
+            " and paste " + (missing.length === 1 ? "it" : "them") +
+            " in alongside what you already have, in any order.");
+    }
+    return [...Array(total)].map((_, k) => found.get(k + 1)).join("");
 }
 
 const SVGNS = "http://www.w3.org/2000/svg";
@@ -2986,19 +3134,31 @@ function printPlain() {
                  "writes plaintext to disk.\n\nContinue?")) return;
 
     $("#plainHead").textContent =
-        "PLAINTEXT RECOVERY CODES - treat this sheet as the codes themselves\n" +
+        "PLAINTEXT RECOVERY CODES AND NOTES - treat this sheet as the secrets themselves\n" +
         "vault   : " + (state.meta.label || "(unlabelled)") + "\n" +
         "printed : " + new Date().toISOString() + "\n" +
-        "contents: " + state.items.length + " accounts, " + codes + " codes";
+        "contents: " + state.items.length + " accounts, " + codes + " codes" +
+        (state.items.some(i => (i.body || "").trim()) || (state.meta.note || "").trim()
+            ? ", plus notes" : "");
 
     const host = $("#plainCols");
     host.textContent = "";
+    /* The vault note first, since it is about the whole sheet. */
+    if ((state.meta.note || "").trim()) {
+        const vn = el("div", "plain-vaultnote");
+        vn.appendChild(el("div", "plain-site", "Vault note"));
+        vn.appendChild(el("div", "plain-body", state.meta.note.trim()));
+        host.appendChild(vn);
+    }
     state.items.forEach(item => {
         const lines = item.codes.split(/\n/).map(x => x.trim()).filter(Boolean);
-        if (!lines.length) return;
+        const body = (item.body || "").trim();
+        /* An account carrying only notes still belongs on the sheet. */
+        if (!lines.length && !body) return;
         const box = el("div", "plain-acct");
         box.appendChild(el("div", "plain-site", (item.site || "(unnamed)") + (item.user ? "  " + item.user : "")));
-        box.appendChild(el("div", "plain-codes", lines.join("\n")));
+        if (lines.length) box.appendChild(el("div", "plain-codes", lines.join("\n")));
+        if (body) box.appendChild(el("div", "plain-body", body));
         host.appendChild(box);
     });
 
@@ -3120,6 +3280,46 @@ $("#btnPaperLoad").addEventListener("click", () => {
     notify("Backup read, passphrase or key needed");
 }); 
 $("#btnReset").addEventListener("click", lockVault);
+
+const dlgRk = $("#dlgRekey");
+function closeRekey() {
+    $("#rkPass1").value = ""; $("#rkPass2").value = "";
+    $("#rkRotate").checked = false; $("#rkMeter").textContent = "";
+    if (dlgRk.open) dlgRk.close();
+}
+$("#btnRekey").addEventListener("click", () => {
+    closeRekey();
+    dlgRk.showModal();
+    $("#rkPass1").focus();
+});
+$("#rkCancel").addEventListener("click", closeRekey);
+dlgRk.addEventListener("cancel", e => { e.preventDefault(); closeRekey(); });
+$("#rkPass1").addEventListener("input", () => {
+    const [msg] = passNote($("#rkPass1").value);
+    $("#rkMeter").textContent = msg;
+    bumpIdle();
+});
+$("#rkSave").addEventListener("click", async () => {
+    const p1 = $("#rkPass1").value, p2 = $("#rkPass2").value;
+    const [, ok] = passNote(p1);
+    if (!ok) return notify("Passphrase is too short", true);
+    if (p1 !== p2) return notify("The two passphrases do not match", true);
+    const rotate = $("#rkRotate").checked;
+    if (rotate && !confirm("Replace the key? Every key card printed so far stops working for this " +
+                           "vault. You will need to print a new card and a new backup.")) return;
+    $("#rkSave").disabled = true;
+    $("#rkMeter").textContent = "deriving key, this takes a moment";
+    try {
+        await rekey(p1, rotate);
+        closeRekey();
+        notify(rotate
+            ? "Key replaced. Print a new key card and a new backup now - the old ones no longer match."
+            : "Passphrase changed. Export or print again so your copies use it.");
+    } catch (e) {
+        notify("Could not change it: " + e.message, true);
+    }
+    $("#rkSave").disabled = false;
+});
 $("#btnClose").addEventListener("click", closeVault);
 
 $("#btnNew").addEventListener("click", () => {
@@ -3214,9 +3414,29 @@ $("#edDelete").addEventListener("click", () => {
 $("#edCodes").addEventListener("input", () => { edCount(); bumpIdle(); });
 $("#edCodes").addEventListener("focus", () => setEdBlur(false));
 $("#edCodes").addEventListener("blur", () => setEdBlur(true));
+$("#edBody").addEventListener("focus", () => setEdBlur(false));
+$("#edBody").addEventListener("blur", () => setEdBlur(true));
+$("#edBody").addEventListener("input", bumpIdle);
+$("#mNote").addEventListener("focus", () => setNoteBlur(false));
+$("#mNote").addEventListener("blur", () => setNoteBlur(true));
+$("#mNote").addEventListener("input", e => { state.meta.note = e.target.value; bumpIdle(); });
 /* Escape fires close directly, bypassing the buttons, so clear there too. */
-dlg.addEventListener("close", () => { $("#edCodes").value = ""; editIdx = -1; renderRows(); });
+dlg.addEventListener("close", () => {
+    $("#edCodes").value = "";
+    $("#edBody").value = "";
+    editIdx = -1;
+    renderRows();
+});
 dlg.addEventListener("cancel", e => { e.preventDefault(); closeEditor(); renderRows(); });
+
+(() => {
+    const b = $("#mNoteShow");
+    const on = () => setNoteBlur(false), off = () => setNoteBlur(true);
+    b.addEventListener("pointerdown", on);
+    ["pointerup", "pointerleave", "pointercancel", "blur"].forEach(e => b.addEventListener(e, off));
+    b.addEventListener("keydown", e => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); on(); } });
+    b.addEventListener("keyup", off);
+})();
 
 (() => {
     const b = $("#edShow");

@@ -43,8 +43,14 @@ import hmac
 import json
 import re
 import sys
+import unicodedata
 
 FORMAT = b"back-stop-vault-1"   # AAD for both GCM layers
+
+# back-stop writes 600,000. The floor rejects a file weakened below anything
+# the tool produces; the ceiling stops a crafted file hanging the script.
+ITER_MIN = 100000
+ITER_MAX = 10000000
 ENV_MAGIC = b"BS"
 ENV_VER = 1
 ENV_FIXED = 3 + 2 + 16 + 12 + 48 + 12 + 1
@@ -198,6 +204,11 @@ def parse_key(text):
     with I and L read back as 1 and O as 0, then two check characters."""
     s = text.strip()
     s = re.sub(r"^BSK1:", "", s, flags=re.I)
+    # Copy-text-from-photo takes the card's label too. Safe to strip: the
+    # label contains an O, which Crockford base32 never uses, and a key has
+    # no brackets. Kept identical to parseKey() in index.html.
+    s = re.sub(r"recovery\s*key", "", s, flags=re.I)
+    s = re.sub(r"\([^)]*\)", "", s)
     c = re.sub(r"[^0-9A-Z]", "", s.upper())
     c = c.replace("I", "1").replace("L", "1").replace("O", "0")
 
@@ -330,6 +341,18 @@ def load(text):
 
 # ---------------------------------------------------------------- unwrap
 
+def check_iterations(n):
+    if not isinstance(n, int) or isinstance(n, bool):
+        raise ValueError("the key derivation settings in that file are malformed")
+    if n < ITER_MIN:
+        raise ValueError("that file asks for %d key derivation rounds, below the %d "
+                         "minimum; it was not written by back-stop or has been altered"
+                         % (n, ITER_MIN))
+    if n > ITER_MAX:
+        raise ValueError("that file asks for %d key derivation rounds, above the %d "
+                         "maximum; refusing rather than hanging" % (n, ITER_MAX))
+
+
 def open_vault(env, passphrase=None, data_key=None):
     """Unwrap the data key, then open the body. The data key is random and
     per-vault; the passphrase only ever protects the wrapper, which is why the
@@ -337,8 +360,15 @@ def open_vault(env, passphrase=None, data_key=None):
     if data_key is None:
         if passphrase is None:
             raise ValueError("need a passphrase or a recovery key")
+        check_iterations(env["iterations"])
+        # The browser normalises to NFKC before deriving, so this must too.
+        # Without it, a passphrase containing an accent, a ligature or a
+        # full-width character derives a different key here than it did in
+        # the tool, and a correct passphrase is rejected as wrong - on the
+        # break-glass path, at the one moment the tool is not available.
+        normalised = unicodedata.normalize("NFKC", passphrase)
         wrap_key = hashlib.pbkdf2_hmac(
-            "sha256", passphrase.encode("utf-8"), env["salt"], env["iterations"], 32)
+            "sha256", normalised.encode("utf-8"), env["salt"], env["iterations"], 32)
         try:
             data_key = aes_gcm_decrypt(wrap_key, env["wrap_iv"], env["wrap_ct"], FORMAT)
         except ValueError:
@@ -381,6 +411,12 @@ def render(vault):
                  % (len(items), "" if len(items) == 1 else "s",
                     total, "" if total == 1 else "s"))
     lines.append("")
+    # Vault-level note first: it is about the whole vault, not one account.
+    if (meta.get("note") or "").strip():
+        lines.append("vault note")
+        for ln in meta["note"].strip().splitlines():
+            lines.append("  " + ln)
+        lines.append("")
     for i in items:
         head = i.get("site") or "(unnamed)"
         if i.get("user"):
@@ -391,6 +427,10 @@ def render(vault):
         for c in (i.get("codes") or "").splitlines():
             if c.strip():
                 lines.append("  " + c.strip())
+        # Free text, so the user's own line breaks and indentation are kept.
+        if (i.get("body") or "").strip():
+            for ln in i["body"].strip().splitlines():
+                lines.append("  | " + ln)
         lines.append("")
     return "\n".join(lines).rstrip() + "\n"
 
@@ -453,6 +493,14 @@ def selftest():
     check("PBKDF2-HMAC-SHA256 (RFC 6070 salt)",
           hashlib.pbkdf2_hmac("sha256", b"password", b"salt", 1, 32),
           h("120fb6cffcf8b32c43e7225256c4f837a86548c92ccc35480805987cb70be17b"))
+
+    # NFKC: composed and decomposed accents, a ligature and full-width forms
+    # must all derive the key the browser derives. Regression for a real bug.
+    composed = "caf\u00e9 \ufb01nal \uff41\uff42"
+    decomposed = "cafe\u0301 \ufb01nal \uff41\uff42"
+    check("passphrase NFKC matches the browser",
+          unicodedata.normalize("NFKC", composed) == unicodedata.normalize("NFKC", decomposed)
+          == "caf\u00e9 final ab", True)
 
     # the key card encoding, round-tripped
     key = bytes(range(32))
