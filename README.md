@@ -9,7 +9,9 @@ sheet for a safe.
 ![screenshot](docs/screenshot.png)
 
 Download `index.html` and open it in a browser. There is nothing to install,
-and it makes no network connections.
+and it makes no network connections. To read a printed backup without a phone
+scanner app, keep `scan.html` in the same folder; see
+[Scanning without a phone scanner app](#scanning-without-a-phone-scanner-app).
 
 ## Getting started
 
@@ -32,6 +34,8 @@ your passphrase or the key card.
 - Prints every code in plain text, three dense columns to a sheet, for a safe.
 - Prints a key card that opens the vault without the passphrase.
 - Restores from the exported file or the printed QR codes.
+- Reads the printed QR codes in a browser tab, with a decoder of its own, so no
+  phone scanner app is needed (`scan.html`).
 - Keeps free-text notes per account, and one for the vault as a whole, for
   anything that is not a list of codes.
 - Keeps accounts in alphabetical order by provider.
@@ -41,7 +45,7 @@ your passphrase or the key card.
 | | What you need to open it | Where it belongs |
 |---|---|---|
 | Exported file | this tool + passphrase or key card | disk, sync, wherever |
-| Printed backup | a phone camera + passphrase or key card | a folder, a deposit box, a relative's house |
+| Printed backup | a phone camera or `scan.html`, + passphrase or key card | a folder, a deposit box, a relative's house |
 | Plaintext sheet | nothing | a safe |
 | Key card | - | apart from all of the above |
 
@@ -62,8 +66,9 @@ store them apart, and that is a whole strategy. **From paper** takes the
 scanned text back in, and either the passphrase or the key card opens it.
 
 To restore from paper, scan each QR code with your phone's camera app and paste
-the text into **From paper**, in any order. The tool has no scanner of its own,
-so this is easiest done entirely on a phone.
+the text into **From paper**, in any order. That is easiest done entirely on a
+phone. If you would rather not use a scanner app at all, `scan.html` does the
+scanning in a browser tab instead.
 
 ### Backups on several sheets
 
@@ -85,6 +90,41 @@ ever end up in the same pile, the marks tell you which sheets go together. The
 code is there as text because a black-and-white printer drops the colours. The
 last page of every backup explains, for someone who has never seen back-stop,
 how to open it with nothing but Python.
+
+## Scanning without a phone scanner app
+
+A phone's camera app or a scanner app is someone else's software looking at your
+backup. The codes are encrypted and no use without your passphrase or key card,
+but if you would rather not hand them to an app you cannot read, `scan.html`
+does the reading itself.
+
+It is a second page, kept beside `index.html` and linked from **From paper**,
+which opens it in a new tab. It reads the QR codes through the camera, or from
+photos you add, with a decoder written for this tool and sitting in that one
+file. Each sheet is ticked off as it is read, and when they are all in it gives
+you the joined text. Copy it, go back to the back-stop tab, choose **From
+paper**, paste, and choose **Read backup**.
+
+- **Why a separate page.** The reader is the only part that needs the camera,
+  and the page that holds your codes should not have it. `scan.html` only ever
+  sees the encrypted backup. It has no vault and no passphrase and cannot open
+  one, and the two pages do not talk to each other: you carry the text across,
+  through the clipboard, yourself.
+- **The key card too.** Its square code is read the same way, and checked with
+  the card's own two check characters. The key is shown blurred, and the Copy
+  key button is marked as risky because it puts the key on the clipboard.
+- **The camera.** Only on `scan.html`, and only while you have it switched on.
+  It turns off when every sheet is in, when you press Stop, and when you leave
+  the tab. `_headers` and `.htaccess` deny the camera to every other page.
+- **Nothing leaves it.** It makes no network connections, stores nothing but
+  your choice of design, mode and accent, and clears what it has read after
+  five minutes idle.
+- **Getting a good read.** Even light, no glare, the sheet flat and the square
+  filling most of the view. A dense sheet, with many small squares, needs a
+  steadier hand and a sharper camera than a small one: move closer, use Zoom if
+  it appears, or add a photo instead.
+- **If it will not read a code,** any other scanner will, and `recover.py` opens
+  a scanned backup with nothing but Python.
 
 ## If you forget your passphrase
 
@@ -194,8 +234,12 @@ notes are for:
 - **Printing in the clear asks first**, and says what the sheet means.
 - **Spellcheck and autofill are off** in every field, since some browsers send
   what you type to a remote spellcheck service.
-- **There are no copy buttons**, because clipboard history can sync between
-  devices.
+- **There are no copy buttons** in back-stop itself, because clipboard history
+  can sync between devices. The scanner page has one for the encrypted backup
+  text, which is safe to copy, and one for the recovery key, marked as risky
+  for exactly that reason.
+- **The scanner page is as closed as this one.** No network connections, nothing
+  stored but your appearance choices, and the camera only while you have it on.
 - **Closing the tab with a vault open asks first.**
 
 Print on paper with a local printer. Printing to PDF saves your codes to disk,
@@ -214,6 +258,8 @@ afterwards.
   content security policy forbids them.
 - **Leaving traces in the browser.** Nothing is stored there but your choice
   of design, mode and accent.
+- **A scanner app you do not trust.** `scan.html` reads the printed codes
+  itself, in a tab with no network access.
 - **A damaged or altered copy.** Encryption is authenticated, so a corrupted
   file or backup fails to open rather than producing wrong codes.
 - **The tool going away.** `recover.py` opens the file or the printed backup
@@ -272,6 +318,11 @@ afterwards.
   been independently reviewed. `AI_AUDIT_INSTRUCTIONS.md` says how to check
   it with a separate decoder, and a printed backup should be test-restored
   from paper once before you rely on it.
+- **`scan.html`'s decoder is hand-written too**, and has not been independently
+  reviewed. It accepts a code only when every block of error correction checks
+  out, and what it hands back is ciphertext, so a misread fails to decrypt
+  instead of producing wrong codes. It is a convenience: any other scanner
+  reads the same codes.
 - **If you use a hosted copy, you are trusting whoever hosts it**, since they
   control the page that handles your codes. Compare its hash with the one on
   the release page before entering anything real, or just use the file
@@ -281,9 +332,9 @@ afterwards.
 
 Releases are on the
 [Releases page](https://github.com/shanemc92/back-stop/releases). Each one has
-`index.html`, `recover.py` and a `SHA256SUMS` file, and a signed attestation
-tying the two files to this repository, the workflow that published them and
-the commit the tag points at. There is no build step: the files are exactly
+`index.html`, `scan.html`, `recover.py` and a `SHA256SUMS` file, and a signed
+attestation tying the three files to this repository, the workflow that
+published them and the commit the tag points at. There is no build step: the files are exactly
 what is in the repository.
 
 Put the downloaded files and `SHA256SUMS` in one folder, then check the
@@ -293,13 +344,14 @@ hashes. On Linux, or macOS with `shasum -a 256 -c` in place of `sha256sum -c`:
 
 On Windows, print each hash and compare it with `SHA256SUMS` by eye:
 
-    Get-FileHash index.html, recover.py -Algorithm SHA256
+    Get-FileHash index.html, scan.html, recover.py -Algorithm SHA256
 
 Then check the attestation. It needs the [GitHub CLI](https://cli.github.com/),
 and it proves the file came from this repository's release workflow, which a
 matching hash alone does not:
 
     gh attestation verify index.html --repo shanemc92/back-stop
+    gh attestation verify scan.html --repo shanemc92/back-stop
     gh attestation verify recover.py --repo shanemc92/back-stop
 
 Do this on the copy you will actually use, and again for any copy somebody
@@ -372,6 +424,7 @@ is also printed on the backup itself.
 ## Files
 
     index.html                  the tool. One file, open it in a browser.
+    scan.html                   reads printed QR codes in a browser tab. One file, keep it beside index.html.
     recover.py                  opens a vault without the browser. Python standard library only.
     README.md                   this file.
     AI_AUDIT_INSTRUCTIONS.md    a guide for reviewing the code.

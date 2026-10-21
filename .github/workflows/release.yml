@@ -1,12 +1,12 @@
-# Publishes index.html and recover.py as a release, with a SHA256SUMS file and
-# a signed build-provenance attestation for each, so a copy of the tool can be
+# Publishes index.html, scan.html and recover.py as a release, with a SHA256SUMS
+# file and a signed build-provenance attestation for each, so a copy of the tool can be
 # checked against something other than the word of whoever handed it over.
 #
 # Run it by pushing a tag:
 #
 #   git tag v1.0.0 && git push origin v1.0.0
 #
-# There is no build step: index.html and recover.py ship exactly as committed.
+# There is no build step: the three files ship exactly as committed.
 # The attestation binds those bytes to this repository, this workflow and the
 # commit the tag points at.
 name: release
@@ -37,13 +37,14 @@ jobs:
         run: python3 recover.py --selftest
 
       - name: Write the checksums
-        run: sha256sum index.html recover.py | tee SHA256SUMS
+        run: sha256sum index.html scan.html recover.py | tee SHA256SUMS
 
-      - name: Attest index.html and recover.py
+      - name: Attest the three files
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: |
             index.html
+            scan.html
             recover.py
 
       # The gh CLI on the runner rather than a marketplace action: one less
@@ -70,7 +71,8 @@ jobs:
             echo '```'
             echo "sha256sum -c SHA256SUMS"
             echo "gh attestation verify index.html --repo ${REPO}"
+            echo "gh attestation verify scan.html --repo ${REPO}"
             echo '```'
           } > notes.md
-          gh release create "${TAG}" index.html recover.py SHA256SUMS \
+          gh release create "${TAG}" index.html scan.html recover.py SHA256SUMS \
             --repo "${REPO}" --title "${TAG}" --notes-file notes.md --verify-tag

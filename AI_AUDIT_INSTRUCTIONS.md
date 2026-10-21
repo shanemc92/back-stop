@@ -11,15 +11,18 @@ to say plainly what it could not check.
 
 ## Scope
 
-In scope: `index.html` (the tool, one file, no dependencies) and `recover.py`
-(the standalone reader, Python standard library only).
+In scope: `index.html` (the tool, one file, no dependencies), `scan.html` (the
+scanner page, one file, no dependencies) and `recover.py` (the standalone
+reader, Python standard library only).
 
 Out of scope: the browser, its Web Crypto implementation, the operating system,
 the printer, and the hosting of any copy you did not make yourself.
 
 Everything is hand-written except what the browser and the Python standard
 library provide. There is no build step, no package manager and no vendored
-code, so what is in the repository is what runs.
+code, so what is in the repository is what runs. `scan.html` shares the page
+shell and appearance code with `index.html` and carries its own copy of two QR
+tables; everything else in it is the scanner.
 
 ## Read first
 
@@ -31,7 +34,8 @@ Do not report as new anything those sections already admit.
 
 ## Claims, and where to check each
 
-Names are functions or constants in `index.html` unless marked `recover.py`.
+Names are functions or constants in `index.html` unless marked `recover.py` or
+`scan.html`.
 Line numbers are left out on purpose: they drift, names do not.
 
 | # | Claim | Check | A pass looks like |
@@ -50,7 +54,13 @@ Line numbers are left out on purpose: they drift, names do not.
 | 12 | Codes stay off screen, paper and the clipboard unless asked | The `blurred` class, `reblurAll`, the `visibilitychange` and `blur` listeners, the print block at the end of the `<style>`, and a search for `clipboard` and `execCommand` | No copy button, no clipboard write, code fields removed from every print path but the plaintext sheet, and an accidental Ctrl+P prints only a notice |
 | 13 | Only the three print buttons print | `printCard`, `printBackup`, `printPlain`, the `data-print` attribute, and the `@media print` rules that depend on it | Every path sets `data-print`, removes it again on `afterprint`, and clears what it put in the DOM |
 | 14 | Lock, Close and idle-lock clear the vault | `lockVault`, `closeVault`, `wipe`, `bumpIdle`, `IDLE_MS` | Key bytes zeroed, references dropped, form fields cleared, timer reset on activity |
-| 15 | Untrusted text never becomes markup | Search for `innerHTML`, `outerHTML`, `insertAdjacentHTML`, `document.write`, `eval`, `new Function` | No hits. File contents, scanned text and account names reach the page through `textContent` or `value` only |
+| 15 | Untrusted text never becomes markup | Search for `innerHTML`, `outerHTML`, `insertAdjacentHTML`, `document.write`, `eval`, `new Function`, in both pages | No hits. File contents, scanned text and account names reach the page through `textContent` or `value` only |
+| 16 | `scan.html` makes no network connection and stores nothing but appearance | Its CSP `<meta>`, and the same searches as claims 1 and 2 | The same policy as `index.html`. `store` touches only `design`, `mode` and `accent`. Nothing scanned reaches storage, a URL or a form |
+| 17 | The camera is on only while asked for, and only on `scan.html` | `startCamera`, `stopCamera`, the `visibilitychange` and `pagehide` listeners, `render` (stops it when the last sheet arrives), and `Permissions-Policy` in `_headers` and `.htaccess` | Every path that ends a scan stops the tracks. `camera=()` everywhere except `/scan.html`, where it is `camera=(self)` |
+| 18 | The decoder only reports codes whose error correction checks out | `decode`, `readWithMask`, `rsCorrect`, `decodeModules` in `scan.html` | Every block must correct and re-check to zero syndromes before a code is returned. A code that is not byte mode at level M is refused. See the next section |
+| 19 | What `scan.html` hands back is exactly the backup, and nothing else | `take`, `takeSheet`, `checkJoined`, `joinedText` | Only `BS1:i/n:` lines of the base64 alphabet are kept. Sheets from two prints, a repeated sheet that differs, and a joined result that is not a back-stop envelope are refused. Unknown codes are never displayed |
+| 20 | The key is checked as it is read, and copying it is deliberate | `keyFrom`, the key panel, `copyFrom` | The normalisation and check characters match `parseKey` in `index.html` and `parse_key` in `recover.py`. No code path copies to the clipboard without a button press, and the key has its own button, marked as risky |
+| 21 | The two pages share no channel | The `<a href="scan.html">` links in `index.html` | `rel="noopener noreferrer"`, so the new tab has no handle on the old one. Nothing is posted between them: the user carries the text |
 
 ## The hand-written parts
 
@@ -73,6 +83,33 @@ find out until the day they needed the paper. To check it:
    18004, and the generator polynomial arithmetic (`GF_EXP`, `GF_LOG`, `rsGen`,
    `rsEc`, polynomial `0x11d`) with the standard.
 
+**The QR decoder in `scan.html`.** Written by hand so there is nothing third
+party in the page, and so held to the same standard as the encoder. Two kinds
+of failure matter: one that makes it miss a code that is there, which is a
+nuisance, and one that makes it return text that is not what is printed, which
+is the one to look for. Reed-Solomon makes the second unlikely, but a decoder
+that shares a mistake with the encoder would agree with it, so check against
+something that does not:
+
+1. Take the encoder in `index.html`, `qrEncode`, and encode payloads of every
+   length it accepts, from 1 byte up to the version 40 limit. Decode each with
+   `scan.html`'s `QRD.decode` and with an independent reader, and compare the
+   text, and the version, with what went in.
+2. Flip random data modules, up to the error correction limit, and confirm the
+   text still comes back, and that going well beyond the limit gives a miss
+   and never different text.
+3. Print backups and key cards from `index.html` to PDF, render the pages at a
+   range of resolutions and decode them, as a user's photo or screenshot would
+   be, and compare with the independent reader's result.
+4. Photograph or simulate photographing printed sheets with tilt, blur, noise
+   and uneven light, at the resolutions of a webcam and a phone, and confirm
+   the rate of reads against the independent reader, and that nothing is ever
+   misread.
+5. Feed it images with no code: blank, noise, gradients, text. It must find
+   nothing.
+6. Compare `QR_ECC` and `QR_ALIGN` in `scan.html` with the copies in
+   `index.html`, and both with ISO/IEC 18004.
+
 **The AES-GCM in `recover.py`.** It exists so the script needs nothing
 installed. `--selftest` runs FIPS-197 and NIST GCM vectors; a reviewer should
 confirm the vectors are the published ones, that a flipped bit anywhere in the
@@ -93,13 +130,20 @@ the file, open it with `recover.py`, print the backup, decode the printed
 symbols with an independent reader, and open that text with `recover.py` too.
 Do it once with the passphrase and once with the key card.
 
+And the round trip through `scan.html`: print a backup and a key card, give the
+pages to `scan.html` as photos, or as a camera, and paste what it produces into
+From paper in `index.html`. A browser can be given a video file as a fake
+camera for this. The vault must open with the passphrase, and again with the
+scanned key.
+
 ## Already known
 
 These are in the README and are not findings: a short passphrase can be guessed
 offline once someone has the file; the key card opens the vault by itself; old
 copies survive a change of passphrase; memory cannot be wiped from JavaScript;
 the printed backup shows its label, date, size and account count in the clear;
-`recover.py` and the QR encoder are hand-written and not independently audited;
+`recover.py`, the QR encoder and the QR decoder in `scan.html` are hand-written
+and not independently audited;
 a hosted copy is only as trustworthy as its host.
 
 ## Report like this
@@ -107,8 +151,8 @@ a hosted copy is only as trustworthy as its host.
 For each finding: a severity (Critical, High, Medium, Low or Info), where it is
 (function name and what it does), what is wrong, what an attacker or an
 unlucky owner can do with it, and what you would change. Then, separately, one
-line for each of the fifteen claims above: verified, not verified, or
-contradicted, and why.
+line for each of the claims above: verified, not verified, or contradicted, and
+why.
 
 Say what you could not check. A review that lists the limits of its own
 reading is worth more than one that sounds certain.
