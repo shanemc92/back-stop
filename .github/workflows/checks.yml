@@ -10,3 +10,20 @@ permissions:
 jobs:
   static-checks:
     uses: shanemc92/.github/.github/workflows/static-checks.yml@main
+
+  # recover.py is the way back in when the browser is gone, so a regression in
+  # its AES-GCM, PBKDF2 or key-card code has to fail a build, not wait for
+  # someone to run --selftest by hand on the day they need it. The known-answer
+  # vectors are NIST's and RFC 6070's, so a pass here is not the script
+  # agreeing with itself.
+  recover-selftest:
+    name: recover.py self-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Run the known-answer tests
+        run: python3 recover.py --selftest
