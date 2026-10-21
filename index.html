@@ -1149,7 +1149,7 @@ textarea.field.blurred {
         page-break-inside: auto !important;
     }
 
-    /* An accidental Ctrl+P is not one of the three print paths, so it prints a
+    /* An accidental Ctrl+P is not one of the deliberate print paths, so it prints a
        notice instead of the page. The template's print block deliberately
        unhides every tab (section[hidden] -> display: block) to print a whole
        document, which here would put the About essay and, worse, the account
@@ -1278,6 +1278,61 @@ textarea.field.blurred {
 .ps-card-cols .ps-symbol { margin: 0; }
 .ps-card-cols .ps-panel + .ps-panel { margin-top: 3.5mm; }
 .ps-cap { margin-top: 1.5mm; font: 8pt/1.3 var(--font); color: var(--ps-mute); text-align: center; }
+
+/* ---------- wallet card -------------------------------------------------
+   The key card at credit-card size: ISO/IEC 7810 ID-1, 85.6 by 53.98 mm with
+   3.18 mm corners. Front and back are drawn at exactly that size, so the sheet
+   has to be printed at 100 per cent. The type is small, so what has to be read
+   is set as large as the card allows, and everything else is kept short. */
+.pw-note { margin: 4mm 0 5mm; }
+.pw-note p { margin: 0 0 1.5mm; }
+.pw-ruler { display: flex; align-items: center; gap: 2.5mm; margin-top: 2mm; font: 7pt/1 var(--font); color: var(--ps-mute); }
+.pw-bar {
+    display: block; flex: none; width: 50mm; height: 2.4mm;
+    border-left: 0.3mm solid #000; border-right: 0.3mm solid #000;
+    background: linear-gradient(#000, #000) center / 100% 0.3mm no-repeat;
+}
+.pw-side { margin: 0 0 1.5mm; font: 700 7pt/1 Helvetica, Arial, sans-serif; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ps-mute); }
+.pw-face { margin-bottom: 6mm; }
+.pw-card {
+    box-sizing: border-box; width: 85.6mm; height: 53.98mm; padding: 3.5mm;
+    border: 0.25mm dotted #555; border-radius: 3.18mm; background: #fff;
+    display: flex; gap: 3.5mm; overflow: hidden;
+}
+.pw-qr { flex: 0 0 31mm; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.pw-qr svg { display: block; }
+.pw-cap { margin-top: 1.2mm; font: 5.2pt/1.2 var(--font); color: var(--ps-mute); text-align: center; }
+.pw-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.pw-brand { display: flex; align-items: center; gap: 1.6mm; font: 700 8.5pt/1 Helvetica, Arial, sans-serif; }
+.pw-brand svg { width: 5mm; height: 5mm; color: var(--ps-navy); flex: none; }
+.pw-kind { margin: 2mm 0 1.4mm; font: 700 5.2pt/1 Helvetica, Arial, sans-serif; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ps-mute); }
+.pw-key { font: 700 8pt/1.55 var(--font); letter-spacing: 0.02em; white-space: pre; }
+.pw-meta {
+    margin-top: auto; font: 5.4pt/1.4 var(--font); color: var(--ps-mute); white-space: pre-line; overflow-wrap: anywhere;
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
+}
+.pw-back { flex-direction: column; gap: 0; }
+.pw-back .pw-kind { margin-top: 0; }
+.pw-back ol { margin: 0; padding-left: 3.6mm; font: 6.1pt/1.4 Helvetica, Arial, sans-serif; }
+.pw-back li { margin: 0 0 0.7mm; }
+.pw-tip { margin: 1mm 0 0; font: 5.8pt/1.35 Helvetica, Arial, sans-serif; color: var(--ps-mute); }
+.pw-warn {
+    margin-top: 1.8mm; padding: 1.4mm 2mm; border: 0.4mm solid #6b5200; border-radius: 1.5mm;
+    background: #fff4cc; color: #3d2f00; font: 6pt/1.35 Helvetica, Arial, sans-serif;
+}
+.pw-back .pw-meta { margin-top: auto; padding-top: 1mm; }
+
+/* Two sheets to a landscape A4 page. Each sheet is drawn at its usual size and
+   scaled to fit half the page, with the fold between them where no code is. The
+   page itself is made landscape by a rule added when printing, since a page
+   size cannot be switched by an attribute. */
+.ps-pair { position: relative; display: flex; width: 285mm; height: 196mm; break-after: page; page-break-after: always; }
+.ps-pair:last-child { break-after: auto; page-break-after: auto; }
+.ps-pair::after { content: ""; position: absolute; top: 0; bottom: 0; left: 50%; border-left: 0.2mm dotted #999; }
+.ps-half { position: relative; flex: 0 0 142.5mm; height: 196mm; overflow: hidden; }
+/* The panel's own bottom margin would push the last page over by a few millimetres. */
+#panelQrPrint { margin-bottom: 0; }
+.ps-half .ps { position: absolute; top: 0; left: 4mm; margin: 0; width: 186mm; max-width: none; transform: scale(0.72); transform-origin: top left; }
 
 /* Plaintext sheet. Dense on purpose: the fewer pages, the fewer things to
    lose. Three columns of 9pt fits roughly two hundred codes on A4. */
@@ -1617,12 +1672,17 @@ html[data-design="contour"] .sc-chip { border-radius: 999px; }
                 <button class="btn btn-primary" id="btnSave">Export file</button>
                 <button class="btn" id="btnPaper">Print backup</button>
                 <button class="btn" id="btnCard">Print key card</button>
+                <button class="btn" id="btnWallet" title="The key card at credit-card size, front and back, to cut out and carry">Print wallet card</button>
                 <button class="btn btn-danger" id="btnPlain">Print in the clear</button>
                 <button class="btn" id="btnRekey">Change passphrase</button>
                 <div class="spacer"></div>
                 <button class="btn btn-warn" id="btnReset">Lock</button>
                 <button class="btn btn-danger" id="btnClose">Close</button>
             </div>
+            <label class="f" style="margin-top:12px;flex-direction:row;align-items:flex-start;gap:8px">
+                <input type="checkbox" id="optTwoUp" style="margin-top:3px">
+                <span>Print the backup two sheets to a page. It prints landscape with one sheet on each half, so the page folds down the middle between them and no code is creased. The codes print smaller, and still scan.</span>
+            </label>
             <div class="note" style="margin-top:10px">Lock keeps the vault in this tab, sealed, so a passphrase or key card reopens it. Close discards it. Either way nothing is written to this browser, so export a file or print a backup before closing the tab.</div>
         </div>
 
@@ -1752,7 +1812,7 @@ html[data-design="contour"] .sc-chip { border-radius: 999px; }
                 <p><b>Scanning.</b> From paper can read the printed QR codes itself, through the camera or from photos you add, with a decoder written for this tool and sitting in this file. Scan the sheets in any order; when the last one is in, the backup opens. Then type your passphrase, or choose Scan key card. A key card can also be scanned first, or along with the sheets: it unlocks the backup the moment there is one. Nothing it reads is copied, saved or sent: the backup and the key go straight to where you unlock. The camera is on only while you have it switched on. If your camera gives a mirror image, the codes are still read, and Mirror flips the picture to look right.</p>
                 <p><b>Lock and close.</b> Lock hides the vault but keeps it in this tab, so your passphrase or key card reopens it. It also locks itself after five minutes idle. Close discards it.</p>
                 <p><b>Without this page.</b> If this page is ever unavailable, recover.py from the same repository opens an exported file or a scanned backup using only Python, with nothing to install.</p>
-                <p><b>Good to know.</b> Codes and notes are blurred on screen: hold show to read one, and a field you are typing in stays readable. Print on paper with a local printer - printing to PDF saves your codes to disk, and network printers can keep a copy of the job. Only the three print buttons print anything; pressing Ctrl+P on its own prints only a short notice.</p>
+                <p><b>Good to know.</b> Codes and notes are blurred on screen: hold show to read one, and a field you are typing in stays readable. Print on paper with a local printer - printing to PDF saves your codes to disk, and network printers can keep a copy of the job. Only the print buttons print anything; pressing Ctrl+P on its own prints only a short notice.</p>
                 <p><b>How it is protected.</b> AES-256-GCM, with the key derived from your passphrase using PBKDF2-SHA256 at 600,000 rounds. That is the strongest the browser offers without extra software, but a short passphrase can still be broken with enough computing power, so length is what protects you. The full format is in the README.</p>
             </div>
         </div>
@@ -1776,10 +1836,10 @@ html[data-design="contour"] .sc-chip { border-radius: 999px; }
 
 <div id="printNotice" hidden>
     <p><b>Nothing was printed.</b></p>
-    <p>This page does not print. Choose one of the three deliberate backups from
-    the Vault panel instead: <b>Print key card</b> for the recovery key,
-    <b>Print backup</b> for the encrypted QR sheet, or <b>Print in the clear</b>
-    for readable codes.</p>
+    <p>This page does not print. Choose one of the deliberate backups from
+    the Vault panel instead: <b>Print key card</b> or <b>Print wallet card</b>
+    for the recovery key, <b>Print backup</b> for the encrypted QR sheet, or
+    <b>Print in the clear</b> for readable codes.</p>
 </div>
 
 <div class="notification" id="notification" role="status" aria-live="polite"></div>
@@ -3222,8 +3282,8 @@ async function printCard() {
     const how = el("div");
     how.appendChild(psPanel("ps-panel", "How to use this key", psSteps([
         "Open back-stop and choose From a file or From paper.",
-        "Choose Use recovery key instead.",
-        "Type the key above, or scan the square code and paste it.",
+        "Choose Scan key card and hold this card to the camera, or choose Type the recovery key instead.",
+        "If you are typing it, enter the key above.",
         "Once in, choose Change passphrase to set a new passphrase."
     ])));
     how.appendChild(psPanel("ps-panel", "Typing it",
@@ -3258,6 +3318,97 @@ async function printCard() {
     };
     /* The key is on screen only while the dialog is up. onafterprint is the
        reliable signal; the timer covers browsers that never fire it. */
+    window.addEventListener("afterprint", clean, { once: true });
+    setTimeout(clean, 60000);
+    window.print();
+}
+
+/* ---------- wallet card --------------------------------------------------
+   The same key card, at credit-card size, front and back on one sheet to cut
+   out and carry. It holds what the full-page card holds and no more: the key,
+   its square code, and the few lines someone needs to use it. The sheet says to
+   print at 100 per cent and carries a 50 mm bar to check that against, because
+   a card that has been scaled to fit the page is not a credit card.
+   ------------------------------------------------------------------------ */
+
+async function printWallet() {
+    if (!vault.rawKey) return;
+    const ks = await keyString(vault.rawKey);
+    const g = groups(ks, 4);
+    const rows = [g.slice(0, 5), g.slice(5, 10), g.slice(10)].map(r => r.join(" ")).join("\n");
+    /* Version 4, 41 modules with the quiet zone, so about 0.75mm a module at
+       this size: fine for a phone, and for the camera in back-stop. */
+    let node = null;
+    try { node = qrNode(ks, 31); } catch (e) { node = null; }
+
+    const sheet = el("section", "ps pw");
+    sheet.appendChild(psHead("Wallet key card"));
+
+    const note = el("div", "pw-note");
+    note.appendChild(el("h3", "", "Credit-card size"));
+    note.appendChild(el("p", "", "Print this page at 100 per cent: actual size, not fit to page. The bar below " +
+        "should measure exactly 50 mm. Then cut out both cards along the dotted lines and put them back to " +
+        "back, or laminate them together."));
+    const ruler = el("div", "pw-ruler");
+    ruler.appendChild(el("span", "pw-bar"));
+    ruler.appendChild(el("span", "", "50 mm"));
+    note.appendChild(ruler);
+    sheet.appendChild(note);
+
+    /* Front: the square code, and the key in the largest type the card allows. */
+    const front = el("div", "pw-card");
+    const qr = el("div", "pw-qr");
+    if (node) {
+        qr.appendChild(node.svg);
+        qr.appendChild(el("div", "pw-cap", "scan to unlock"));
+    }
+    front.appendChild(qr);
+    const main = el("div", "pw-main");
+    const brand = el("div", "pw-brand");
+    brand.appendChild($(".topbar .logo svg").cloneNode(true));
+    brand.appendChild(el("span", "", APP.id));
+    main.appendChild(brand);
+    main.appendChild(el("div", "pw-kind", "Recovery key"));
+    main.appendChild(el("div", "pw-key", rows));
+    main.appendChild(el("div", "pw-meta", (state.meta.label || "(unlabelled)") + "\n" + today()));
+    front.appendChild(main);
+
+    /* Back: how to use it, and the one rule about where to keep it. */
+    const back = el("div", "pw-card pw-back");
+    back.appendChild(el("div", "pw-kind", "How to use this card"));
+    back.appendChild(psSteps([
+        "Open back-stop. Choose From a file or From paper.",
+        "Choose Scan key card and hold this card to the camera, or Type the recovery key from the front.",
+        "Once in, choose Change passphrase."
+    ]));
+    back.appendChild(el("p", "pw-tip", "Case and spaces do not matter. The letters I, L, O and U are never used: " +
+        "read I or L as 1, and O as 0."));
+    const warn = el("div", "pw-warn");
+    warn.appendChild(el("b", "", "KEEP APART. "));
+    warn.appendChild(el("span", "", "This opens the vault on its own. Never carry it with your printed backup or vault file."));
+    back.appendChild(warn);
+    back.appendChild(el("div", "pw-meta", APP.id + " v" + APP.version + " - github.com/shanemc92/back-stop"));
+
+    [["Front", front], ["Back", back]].forEach(([label, card]) => {
+        const face = el("div", "pw-face");
+        face.appendChild(el("div", "pw-side", label));
+        face.appendChild(card);
+        sheet.appendChild(face);
+    });
+
+    const host = $("#cardPage");
+    host.textContent = "";
+    host.appendChild(sheet);
+    document.documentElement.setAttribute("data-print", "card");
+    $("#panelCardPrint").hidden = false;
+    printTitle("wallet-card");
+    const clean = () => {
+        document.documentElement.removeAttribute("data-print");
+        $("#panelCardPrint").hidden = true;
+        host.textContent = "";
+        printTitleRestore();
+    };
+    /* As for the full-page card: the key is on screen only while the dialog is up. */
     window.addEventListener("afterprint", clean, { once: true });
     setTimeout(clean, 60000);
     window.print();
@@ -3557,6 +3708,8 @@ async function printBackup() {
     const label = state.meta.label || "(unlabelled)";
     const stamp = new Date().toISOString().slice(0, 16).replace("T", " ") + " UTC";
     const accounts = state.items.length + (state.items.length === 1 ? " account" : " accounts");
+    const pages = [];
+    const twoUp = $("#optTwoUp").checked;
     chunks.forEach((text, i) => {
         const node = nodes[i];
         const sheet = el("section", "ps");
@@ -3599,9 +3752,27 @@ async function printBackup() {
                             "so keep it apart from the key card. To hold a copy somewhere else, print a " +
                             "second backup.")));
         sheet.appendChild(psFoot());
-        host.appendChild(sheet);
+        pages.push(sheet);
     });
-    host.appendChild(referencePage(env, mark));
+    pages.push(referencePage(env, mark));
+
+    /* Two to a page: pair the sheets up, and make the page landscape. */
+    let pageStyle = null;
+    if (twoUp) {
+        for (let i = 0; i < pages.length; i += 2) {
+            const pair = el("div", "ps-pair");
+            pages.slice(i, i + 2).forEach(pg => {
+                const half = el("div", "ps-half");
+                half.appendChild(pg);
+                pair.appendChild(half);
+            });
+            host.appendChild(pair);
+        }
+        pageStyle = el("style", "", "@page { size: A4 landscape; margin: 6mm; }");
+        document.head.appendChild(pageStyle);
+    } else {
+        pages.forEach(pg => host.appendChild(pg));
+    }
 
     document.documentElement.setAttribute("data-print", "qr");
     $("#panelQrPrint").hidden = false;
@@ -3610,6 +3781,7 @@ async function printBackup() {
         document.documentElement.removeAttribute("data-print");
         $("#panelQrPrint").hidden = true;
         host.textContent = "";
+        if (pageStyle) pageStyle.remove();
         printTitleRestore();
     };
     window.addEventListener("afterprint", clean, { once: true });
@@ -3632,6 +3804,7 @@ $("#fileIn").addEventListener("change", e => {
     e.target.value = "";
 });
 $("#btnCard").addEventListener("click", printCard);
+$("#btnWallet").addEventListener("click", printWallet);
 $("#btnPaper").addEventListener("click", printBackup);
 $("#btnPlain").addEventListener("click", printPlain);
 

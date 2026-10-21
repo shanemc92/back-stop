@@ -21,7 +21,8 @@ without a phone scanner app; see
 3. Keep a copy before you close the tab - nothing is saved in the browser.
    **Export file**, **Print backup**, or both.
 4. **Print key card** and store it somewhere apart from everything else. It is
-   your way back in if you forget the passphrase.
+   your way back in if you forget the passphrase. **Print wallet card** makes
+   the same card at credit-card size, to cut out and carry.
 
 Next time, open the vault **From a file** or **From paper** and unlock it with
 your passphrase or the key card.
@@ -32,7 +33,8 @@ your passphrase or the key card.
 - Exports an encrypted `.json` file. Open it again later, add more, export again.
 - Prints an encrypted QR backup for somewhere less trusted than a safe.
 - Prints every code in plain text, three dense columns to a sheet, for a safe.
-- Prints a key card that opens the vault without the passphrase.
+- Prints a key card that opens the vault without the passphrase, full page or
+  at credit-card size to carry in a wallet.
 - Restores from the exported file or the printed QR codes.
 - Reads the printed QR codes itself, through the camera or from photos, with a
   decoder of its own, so no phone scanner app is needed (From paper, then Scan
@@ -55,6 +57,17 @@ on nothing: no passphrase, no scanner, no working copy of this tool. It is also
 the one that is equivalent to the codes themselves, so it needs physical
 protection rather than encryption. Keep it apart from the printed backup and
 the key card.
+
+**The wallet card** is the key card at credit-card size, front and back on one
+sheet: 85.6 by 53.98 mm, the size of a bank card, with the key, its square code
+and four lines on how to use it. Print the sheet at 100 per cent (actual size,
+not fit to page), check that the bar on it measures 50 mm, and cut out the two
+faces along the dotted lines. It is the same key as the full-page card and the
+same rule applies, with more force: a wallet is easy to lose and easy to hand
+over. It is a good place for the card only if the exported file and the printed
+backup are never in the same wallet, bag or drawer. If one goes missing, use
+**Change passphrase** with **Also replace the key**, which makes every card
+printed before stop working.
 
 **The key card opens the vault on its own.** That is what makes it a way back
 in, and it is also why it must never be stored with the exported file or the
@@ -91,6 +104,14 @@ ever end up in the same pile, the marks tell you which sheets go together. The
 code is there as text because a black-and-white printer drops the colours. The
 last page of every backup explains, for someone who has never seen back-stop,
 how to open it with nothing but Python.
+
+**Two sheets to a page.** Under the print buttons there is a tick-box for this.
+It prints the backup landscape on A4, one sheet on each half, so the page folds
+down the middle between the two sheets and no code is ever on the fold: the
+usual folding advice, applied to sheets that stay whole. It is handy for a
+backup of a few sheets. The sheets print at about 70 per cent, which is still
+well within what a phone reads, but do the usual test-restore from paper once.
+Your browser's own pages-per-sheet setting does the same job, if you prefer it.
 
 ## Scanning without a phone scanner app
 
@@ -232,7 +253,7 @@ notes are for:
 - **Codes and notes are blurred on screen.** Hold **show** to read one. A field
   you are typing in stays readable, and everything re-blurs when you switch
   tabs or windows.
-- **Only the three print buttons print anything.** Pressing Ctrl+P on its own
+- **Only the print buttons print anything.** Pressing Ctrl+P on its own
   prints a short notice and none of your data.
 - **Printing in the clear asks first**, and says what the sheet means.
 - **Spellcheck and autofill are off** in every field, since some browsers send
