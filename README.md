@@ -67,8 +67,9 @@ so this is easiest done entirely on a phone.
 
 ### Backups on several sheets
 
-A large vault prints across more than one sheet - roughly a hundred codes fit
-on one - and **every sheet is required**. Losing one sheet loses the whole
+A large vault prints across more than one sheet - roughly fifty to eighty
+codes fit on one, fewer for long random codes and more for short numeric
+ones - and **every sheet is required**. Losing one sheet loses the whole
 vault, not part of it.
 
 That makes the usual advice, to keep copies in different places, actively
@@ -76,6 +77,14 @@ wrong for the sheets of a single backup: splitting three sheets across three
 places turns one point of failure into three. Keep the sheets together, and for
 a copy somewhere else, print a second complete set. Each sheet carries a
 reminder of this.
+
+Every sheet of one print carries the same **set mark**: three coloured squares
+and a six-character code. It is worked out from the backup itself, so a second
+export, which holds different ciphertext, gets a different mark. If two prints
+ever end up in the same pile, the marks tell you which sheets go together. The
+code is there as text because a black-and-white printer drops the colours. The
+last page of every backup explains, for someone who has never seen back-stop,
+how to open it with nothing but Python.
 
 ## If you forget your passphrase
 
@@ -163,6 +172,13 @@ notes are for:
   saw what.
 - **Regulated or client data.** No audit trail, and a plaintext print option
   is a compliance problem waiting to happen.
+- **Splitting the key between people.** back-stop has no M-of-N sharing: the
+  key card is one string that opens the vault by itself. If you want it held
+  by several people so that no one of them can open it, store the 54-character
+  key in a tool built for that, such as
+  [papervault](https://github.com/boazeb/papervault), which splits a small
+  secret across printed keys. back-stop does not integrate with it and has not
+  reviewed it.
 
 ## Privacy
 
@@ -186,6 +202,52 @@ Print on paper with a local printer. Printing to PDF saves your codes to disk,
 and network printers can keep a copy of the job, so check the print queue
 afterwards.
 
+## What it protects against, and what it does not
+
+**It protects against:**
+
+- **Losing every device.** The exported file, the printed backup and the
+  plaintext sheet each survive on their own.
+- **Someone getting one encrypted copy.** A stolen or leaked file or printed
+  backup is useless without the passphrase or the key card.
+- **The page reporting back.** It makes no network connections, and its
+  content security policy forbids them.
+- **Leaving traces in the browser.** Nothing is stored there but your choice
+  of design, mode and accent.
+- **A damaged or altered copy.** Encryption is authenticated, so a corrupted
+  file or backup fails to open rather than producing wrong codes.
+- **The tool going away.** `recover.py` opens the file or the printed backup
+  with nothing but Python.
+
+**It does not protect against:**
+
+- **Malware, or someone else controlling the computer, while a vault is
+  open.** Keyloggers, screen capture, a hostile browser extension and a
+  remote session can all read what you can read. Blurring and auto-lock are
+  for people in the room, not for software on the machine.
+- **Someone watching you type or read.** Blurred fields shrink the glance
+  window; they do not remove it.
+- **A tampered copy of the tool.** A modified `index.html` can do anything the
+  real one can. The only defence is checking the copy you run; see
+  [Checking your copy](#checking-your-copy).
+- **Anyone holding the key card and a copy of the vault.** That is a complete
+  set. Keep them apart.
+- **The plaintext sheet falling into the wrong hands.** It is the codes
+  themselves, with nothing between them and the reader.
+- **A short or guessable passphrase, once someone has the file.** They can
+  try guesses offline for as long as they like.
+- **Memory that cannot be wiped.** Lock and Close drop the vault and zero the
+  key bytes, but JavaScript cannot erase the strings your codes were held in,
+  and the operating system may have written memory to a swap or hibernation
+  file. Close the tab, and on a machine you do not trust, restart it.
+- **The printed backup describing itself.** Each sheet shows, in the clear,
+  that it is a back-stop backup, the vault label you gave it, the date, the
+  size and the number of accounts. Leave the label vague if that matters.
+- **Coercion and social engineering.** There is no duress passphrase and no
+  hidden vault.
+- **Losing everything.** Every copy gone, or one sheet of a multi-sheet
+  backup, loses the vault.
+
 ## Known limits
 
 - **Your passphrase is the main protection for an exported file.** The key
@@ -203,11 +265,53 @@ afterwards.
   can run with nothing installed. It passes the published test vectors and
   opens vaults made by the tool, which is evidence but not an independent
   audit. It is the fallback for when the browser is gone, not the everyday way
-  in.
+  in. The self-test runs on every push and before every release.
+- **The QR codes are drawn by code in `index.html`** rather than by a library,
+  for the same reason: nothing to install, and nothing to trust but the file.
+  That makes the encoder the likeliest place for a quiet bug, and it has not
+  been independently reviewed. `AI_AUDIT_INSTRUCTIONS.md` says how to check
+  it with a separate decoder, and a printed backup should be test-restored
+  from paper once before you rely on it.
 - **If you use a hosted copy, you are trusting whoever hosts it**, since they
-  control the page that handles your codes. Compare the hash of any hosted copy
-  with your own `index.html` before entering anything real, or just use the
-  file directly.
+  control the page that handles your codes. Compare its hash with the one on
+  the release page before entering anything real, or just use the file
+  directly.
+
+## Checking your copy
+
+Releases are on the
+[Releases page](https://github.com/shanemc92/back-stop/releases). Each one has
+`index.html`, `recover.py` and a `SHA256SUMS` file, and a signed attestation
+tying the two files to this repository, the workflow that published them and
+the commit the tag points at. There is no build step: the files are exactly
+what is in the repository.
+
+Put the downloaded files and `SHA256SUMS` in one folder, then check the
+hashes. On Linux, or macOS with `shasum -a 256 -c` in place of `sha256sum -c`:
+
+    sha256sum -c SHA256SUMS
+
+On Windows, print each hash and compare it with `SHA256SUMS` by eye:
+
+    Get-FileHash index.html, recover.py -Algorithm SHA256
+
+Then check the attestation. It needs the [GitHub CLI](https://cli.github.com/),
+and it proves the file came from this repository's release workflow, which a
+matching hash alone does not:
+
+    gh attestation verify index.html --repo shanemc92/back-stop
+    gh attestation verify recover.py --repo shanemc92/back-stop
+
+Do this on the copy you will actually use, and again for any copy somebody
+else hosts. The tip of `main` is not a release and is not covered.
+
+## Reviewing the code
+
+`AI_AUDIT_INSTRUCTIONS.md` is a guide for reviewing the tool, by a person or
+by an AI assistant: which claims in this README to check, where in the code to
+check each one, and which parts are hand-written and so most worth a second
+pair of eyes. Findings can go to the maintainer through GitHub's private
+vulnerability reporting on this repository.
 
 ## Technical reference
 
@@ -267,13 +371,15 @@ is also printed on the backup itself.
 
 ## Files
 
-    index.html    the tool. One file, open it in a browser.
-    recover.py    opens a vault without the browser. Python standard library only.
-    README.md     this file.
-    LICENSE       MIT.
-    _headers      security headers, if you host it on Netlify or similar.
-    .htaccess     the same for Apache.
-    docs/         the screenshot above.
+    index.html                  the tool. One file, open it in a browser.
+    recover.py                  opens a vault without the browser. Python standard library only.
+    README.md                   this file.
+    AI_AUDIT_INSTRUCTIONS.md    a guide for reviewing the code.
+    LICENSE                     MIT.
+    _headers                    security headers, if you host it on Netlify or similar.
+    .htaccess                   the same for Apache.
+    docs/                       the screenshot above.
+    .github/workflows/          checks on every push, and the release workflow.
 
 ## Licence
 
