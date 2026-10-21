@@ -1044,15 +1044,6 @@ textarea.field.blurred {
     user-select: none;
     -webkit-user-select: none;
 }
-#cardKey {
-    font-size: 15px;
-    line-height: 2.1;
-    letter-spacing: 0.06em;
-    word-break: break-all;
-    border: 1px solid var(--line);
-    padding: 12px;
-}
-
 /* Condensed account list. One line per account, no code fields on the page at
    all: codes exist in the DOM only while the edit dialog is open, which shrinks
    both the shoulder-surfing surface and anything a screenshot can catch. */
@@ -1170,36 +1161,123 @@ textarea.field.blurred {
     html:not([data-print]) section[hidden] { display: none !important; }
     html:not([data-print]) #printNotice { display: block !important; }
 
-    /* Key card print: the card, the masthead and nothing else. */
+    /* Key card and paper backup: the sheets and nothing else. Each sheet draws
+       its own masthead, so the page's own is dropped, and so is the footer,
+       which would otherwise land after the last sheet on a page of its own. */
     html[data-print="card"] #pane-vault > .panel:not(#panelCardPrint),
     html[data-print="card"] #pane-about,
-    html[data-print="card"] .statusline { display: none !important; }
+    html[data-print="card"] .statusline,
+    html[data-print="card"] .topbar,
+    html[data-print="card"] .footer { display: none !important; }
     html[data-print="card"] section[hidden] { display: none !important; }
-    html[data-print="card"] #cardKey { font-size: 15pt; line-height: 2.2; border: 1px solid #999; }
-    html[data-print="card"] #cardMeta { font-size: 9.5pt; }
-    html[data-print="card"] .qr-frame { border: none; padding: 0; }
 }
 
-/* The symbol is machine read, so it is the one element that does not follow
-   the palette: scanners need true black on true white in every mode. */
-.qr-page { break-inside: avoid; page-break-inside: avoid; margin-bottom: 18px; }
-.qr-page + .qr-page { break-before: page; page-break-before: always; }
-/* The envelope notes are reference text, not part of the symbol, so they are
-   allowed to flow onto a page of their own rather than forcing the last
-   symbol to shrink or split. */
-.qr-note { break-before: page; page-break-before: always; }
-.qr-warn {
-    font-weight: 600;
-    line-height: 1.45;
-    border: 2px solid var(--bad);
-    color: var(--bad);
-    padding: 8px 10px;
-    margin-bottom: 12px;
-    max-width: 151mm;
+/* ---------- printed sheets ---------------------------------------------
+   The paper backup and the key card are the two things someone may pick up
+   years from now with no idea what they are, so they are laid out as small
+   documents of their own: a masthead, a block-letter title, the symbol in a
+   frame, and a few plain panels saying what to do. They keep one light
+   palette in every design and mode, and nothing on them depends on colour
+   reaching the paper: the warning has a heavy border and bold type, and the
+   set mark is printed as text as well as colour.
+
+   The symbols themselves are machine read, so they are the one element that
+   does not follow even this palette: true black on true white, with the quiet
+   zone inside the SVG. The frame around one is outside the quiet zone.
+   ------------------------------------------------------------------------ */
+.ps {
+    --ps-ink: #1f2d3d; --ps-mute: #52606d; --ps-line: #c3cbd3; --ps-panel: #f5f7fa;
+    --ps-navy: #243b53; --ps-blue: #66a0ea;
+    width: 186mm; max-width: 100%;
+    margin: 0;
+    background: #fff; color: var(--ps-ink);
+    font-family: Helvetica, Arial, sans-serif; font-size: 9pt; line-height: 1.4;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    break-inside: avoid; page-break-inside: avoid;
 }
-.qr-frame { background: #fff; padding: 10px; display: inline-block; border: 1px solid var(--line); }
-.qr-frame svg { display: block; width: 100%; height: auto; max-width: 151mm; max-height: 151mm; }
-.qr-cap { margin-top: 8px; }
+.ps + .ps { break-before: page; page-break-before: always; }
+.ps h3 {
+    margin: 0 0 1.5mm; font: 700 10.5pt/1.25 Helvetica, Arial, sans-serif;
+    letter-spacing: 0; text-transform: none; color: var(--ps-ink);
+}
+.ps h3::before, .ps h3::after { content: none; }
+.ps p { margin: 1.5mm 0 0; max-width: none; color: inherit; }
+
+.ps-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 6mm;
+    padding-bottom: 2.5mm; border-bottom: 0.4mm solid var(--ps-ink);
+}
+.ps-brand { display: flex; align-items: center; gap: 2.5mm; font: 700 13pt/1 Helvetica, Arial, sans-serif; }
+.ps-brand svg { width: 8mm; height: 8mm; color: var(--ps-navy); flex: none; }
+.ps-kind { text-align: right; }
+.ps-kind b { display: block; font-size: 8pt; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ps-mute); }
+.ps-swatches { display: flex; gap: 1.6mm; justify-content: flex-end; align-items: center; margin-top: 1.2mm; }
+.ps-setid { margin-left: 1mm; font: 700 8.5pt/1 var(--font); letter-spacing: 0.08em; }
+.ps-swatch { width: 5mm; height: 5mm; border: 0.3mm solid #333; border-radius: 1mm; }
+
+.ps-title { display: flex; align-items: flex-end; justify-content: space-between; gap: 6mm; margin: 3.5mm 0 3mm; }
+.ps-banner svg { display: block; height: 12mm; width: auto; }
+.ps-sub { text-align: right; font-weight: 700; font-size: 10.5pt; line-height: 1.3; min-width: 0; max-width: 100mm; }
+.ps-sub small {
+    display: block; font: 400 8pt/1.4 var(--font); color: var(--ps-mute);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.ps-symbol { text-align: center; margin: 0 0 3.5mm; }
+.ps-frame {
+    display: inline-block; padding: 3mm; background: #fff;
+    border: 0.35mm dotted #8793a0; border-radius: 3mm;
+}
+.ps-frame svg { display: block; }
+.ps-fold { margin-top: 2mm; font: italic 700 10.5pt/1 Helvetica, Arial, sans-serif; letter-spacing: 0.06em; }
+
+.ps-cols { display: grid; grid-template-columns: 1.15fr 1fr; gap: 3.5mm; margin-bottom: 3.5mm; }
+.ps-panel {
+    background: var(--ps-panel); border: 0.3mm solid var(--ps-line); border-radius: 2.5mm;
+    padding: 3mm 3.5mm; break-inside: avoid; page-break-inside: avoid;
+}
+.ps-panel ol { margin: 0; padding-left: 4.5mm; }
+.ps-panel li { margin: 0 0 0.8mm; }
+.ps-dl { display: grid; grid-template-columns: max-content 1fr; column-gap: 3mm; row-gap: 0.5mm; margin: 0; }
+.ps-dl dt { color: var(--ps-mute); }
+/* A long label wraps, but never to more than two lines: the sheet has a few
+   millimetres spare, not a page. */
+.ps-dl dd {
+    margin: 0; font: 8.5pt/1.4 var(--font); overflow-wrap: anywhere;
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
+}
+.ps-warn {
+    margin-bottom: 3.5mm; padding: 3mm 3.5mm; border-radius: 2.5mm;
+    background: #fff4cc; border: 0.5mm solid #6b5200; color: #3d2f00;
+}
+.ps-warn h3 { color: #3d2f00; letter-spacing: 0.02em; }
+.ps-warn p:first-of-type { margin-top: 0; }
+.ps-foot {
+    display: flex; justify-content: space-between; gap: 6mm;
+    padding-top: 2mm; border-top: 0.2mm solid var(--ps-line);
+    font: 7.5pt/1.4 var(--font); color: var(--ps-mute);
+}
+
+/* The reference page is text, so it is allowed to be the last page by itself
+   rather than forcing the last symbol to share it. */
+.ps-ref table { width: 100%; border-collapse: collapse; margin: 1.5mm 0 2mm; }
+.ps-ref th, .ps-ref td { padding: 0.9mm 2mm; border-bottom: 0.2mm solid var(--ps-line); text-align: left; vertical-align: top; }
+.ps-ref th { font-size: 8pt; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ps-mute); }
+.ps-ref td.n { text-align: right; font-family: var(--font); white-space: nowrap; }
+.ps-ref code, .ps-ref pre { font: 8.5pt/1.5 var(--font); }
+.ps-ref pre { margin: 1.5mm 0 0; padding: 2mm 3mm; background: #fff; border: 0.2mm solid var(--ps-line); border-radius: 1.5mm; white-space: pre-wrap; }
+.ps-ref .ps-panel + .ps-panel { margin-top: 3.5mm; }
+.ps-ref .ps-foot { margin-top: 3.5mm; }
+
+/* The key itself: set large, in groups, because it is read and retyped far
+   more often than it is scanned. */
+.ps-key { margin: 0 0 3.5mm; padding: 4mm 5mm; border: 0.5mm solid var(--ps-ink); border-radius: 2.5mm; }
+.ps-key-label { font: 700 8pt/1 Helvetica, Arial, sans-serif; letter-spacing: 0.14em; color: var(--ps-mute); }
+.ps-key-text { margin-top: 3mm; font: 400 20pt/2 var(--font); letter-spacing: 0.06em; white-space: pre; }
+.ps-card-cols { display: grid; grid-template-columns: 62mm 1fr; gap: 3.5mm; align-items: start; margin-bottom: 3.5mm; }
+.ps-card-cols .ps-symbol { margin: 0; }
+.ps-card-cols .ps-panel + .ps-panel { margin-top: 3.5mm; }
+.ps-cap { margin-top: 1.5mm; font: 8pt/1.3 var(--font); color: var(--ps-mute); text-align: center; }
 
 /* Plaintext sheet. Dense on purpose: the fewer pages, the fewer things to
    lose. Three columns of 9pt fits roughly two hundred codes on A4. */
@@ -1223,10 +1301,6 @@ textarea.field.blurred {
 }
 /* Spans the columns: prose in a narrow 3-column flow is unreadable. */
 .plain-vaultnote { break-inside: avoid; margin: 0 0 5mm; }
-/* The key card and the symbol captions are laid out as fixed-width blocks, so
-   their line breaks have to survive. */
-#cardKey, #cardMeta, .qr-cap { white-space: pre-wrap; }
-
 @media print {
     html[data-print="plain"] #pane-vault > .panel:not(#panelPlainPrint),
     html[data-print="plain"] #pane-about,
@@ -1241,19 +1315,10 @@ textarea.field.blurred {
 
     html[data-print="qr"] #pane-vault > .panel:not(#panelQrPrint),
     html[data-print="qr"] #pane-about,
-    html[data-print="qr"] .statusline { display: none !important; }
+    html[data-print="qr"] .statusline,
+    html[data-print="qr"] .topbar,
+    html[data-print="qr"] .footer { display: none !important; }
     html[data-print="qr"] section[hidden] { display: none !important; }
-    html[data-print="qr"] .qr-frame { border: none; padding: 0; }
-    html[data-print="qr"] .qr-cap { font-size: 9pt; }
-    html[data-print="qr"] .qr-note { font-size: 8.5pt; line-height: 1.5; }
-    /* Black on white with a heavy rule: the sheet may well be printed on a
-       mono laser, so the warning cannot rely on the red carrying through. */
-    html[data-print="qr"] .qr-warn {
-        font-size: 9.5pt;
-        color: #000;
-        border-color: #000;
-        border-width: 2pt;
-    }
 }
 </style>
 </head>
@@ -1521,20 +1586,12 @@ textarea.field.blurred {
 
         <!-- ================= paper backup, print only ================= -->
         <div class="panel" id="panelQrPrint" hidden>
-            <div class="panel-head"><h2>back-stop encrypted backup</h2></div>
-            <div class="prose">
-                The codes below are this vault, encrypted. On their own they reveal nothing: opening them needs the passphrase or the key card, which is stored separately. To restore, scan each code with a phone camera, open back-stop, choose From paper and paste in the text, in any order. Without back-stop, recover.py from the same repository opens them using only Python.
-            </div>
             <div id="qrPages"></div>
         </div>
 
         <!-- ================= key card, print only ================= -->
         <div class="panel" id="panelCardPrint" hidden>
-            <div class="panel-head"><h2>back-stop recovery key card</h2></div>
-            <div class="prose">This card opens your back-stop vault without the passphrase. Anyone who has this card and a copy of the vault - the file or the printed backup - can read everything in it, so keep this card away from both.</div>
-            <div class="log" id="cardKey" style="margin-top:12px"></div>
-            <div class="qr-frame" id="cardQr" style="margin-top:12px"></div>
-            <div class="log" id="cardMeta" style="margin-top:12px"></div>
+            <div id="cardPage"></div>
         </div>
 
     </section>
@@ -2910,6 +2967,129 @@ function renderStat() {
 
 function reblurAll() { setEdBlur(true); setNoteBlur(true); }
 
+/* ---------- printed sheets -----------------------------------------------
+   The key card and the paper backup are laid out as small documents of their
+   own, for someone who may find one years from now with no idea what it is.
+   The look lives in the CSS block headed "printed sheets"; these build the
+   parts. None of them touches the vault: callers pass in what to print.
+   ------------------------------------------------------------------------ */
+
+/* 5 by 7 block letters, just the ones the titles use. */
+const PIX_FONT = {
+    A: [".###.", "#...#", "#...#", "#####", "#...#", "#...#", "#...#"],
+    B: ["####.", "#...#", "#...#", "####.", "#...#", "#...#", "####."],
+    C: [".####", "#....", "#....", "#....", "#....", "#....", ".####"],
+    E: ["#####", "#....", "#....", "####.", "#....", "#....", "#####"],
+    K: ["#...#", "#..#.", "#.#..", "##...", "#.#..", "#..#.", "#...#"],
+    P: ["####.", "#...#", "#...#", "####.", "#....", "#....", "#...."],
+    U: ["#...#", "#...#", "#...#", "#...#", "#...#", "#...#", ".###."],
+    Y: ["#...#", "#...#", ".#.#.", "..#..", "..#..", "..#..", "..#.."]
+};
+
+/* A block-letter title with a drop shadow, as one SVG so it prints as vector
+   at whatever size the sheet gives it. Navy over the accent blue. */
+function pixelBanner(word) {
+    const cols = word.length * 6 - 1, shade = 0.4;
+    const svg = document.createElementNS(SVGNS, "svg");
+    svg.setAttribute("viewBox", "0 0 " + (cols + shade) + " " + (7 + shade));
+    svg.setAttribute("shape-rendering", "crispEdges");
+    svg.setAttribute("role", "img");
+    svg.setAttribute("aria-label", word.toLowerCase());
+    const layer = (fill, off) => {
+        let d = "";
+        [...word].forEach((ch, i) => PIX_FONT[ch].forEach((row, r) => {
+            for (let c = 0; c < 5; c++)
+                if (row[c] === "#") d += "M" + (i * 6 + c + off) + " " + (r + off) + "h1v1h-1z";
+        }));
+        const p = document.createElementNS(SVGNS, "path");
+        p.setAttribute("d", d);
+        p.setAttribute("fill", fill);
+        svg.appendChild(p);
+    };
+    layer("#66a0ea", shade);
+    layer("#243b53", 0);
+    return svg;
+}
+
+const PS_COLOURS = ["#c62828", "#1d4ed8", "#15803d", "#f59e0b", "#7e22ce",
+                    "#92400e", "#111827", "#db2777", "#0891b2", "#65a30d"];
+
+/* Tells sheets that belong together from sheets that do not. Derived from the
+   bytes being printed, so one backup always prints the same mark, and a second
+   export, which holds different ciphertext, prints a different one. The id is
+   text as well as colour because a mono printer drops the colour. It reveals
+   nothing: it is a few bytes of a hash of ciphertext that is printed anyway. */
+async function setMark(bytes) {
+    const h = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+    const colours = [];
+    for (const b of h) {
+        const c = PS_COLOURS[b % PS_COLOURS.length];
+        if (!colours.includes(c)) colours.push(c);
+        if (colours.length === 3) break;
+    }
+    for (const c of PS_COLOURS) if (colours.length < 3 && !colours.includes(c)) colours.push(c);
+    const id = [...h.subarray(0, 3)].map(b => b.toString(16).padStart(2, "0")).join("").toUpperCase();
+    return { id, colours };
+}
+
+/* Masthead: the logo and name on the left, what this sheet is on the right,
+   and for a backup the set mark under it. */
+function psHead(kind, mark) {
+    const head = el("div", "ps-head");
+    const brand = el("div", "ps-brand");
+    brand.appendChild($(".topbar .logo svg").cloneNode(true));
+    brand.appendChild(el("span", "", APP.id));
+    head.appendChild(brand);
+    const side = el("div", "ps-kind");
+    side.appendChild(el("b", "", kind));
+    if (mark) {
+        const row = el("div", "ps-swatches");
+        mark.colours.forEach(c => {
+            const s = el("span", "ps-swatch");
+            s.style.background = c;
+            row.appendChild(s);
+        });
+        row.appendChild(el("span", "ps-setid", "SET " + mark.id));
+        side.appendChild(row);
+    }
+    head.appendChild(side);
+    return head;
+}
+
+function psTitle(word, line, small) {
+    const t = el("div", "ps-title");
+    const b = el("div", "ps-banner");
+    b.appendChild(pixelBanner(word));
+    t.appendChild(b);
+    const s = el("div", "ps-sub", line);
+    if (small) s.appendChild(el("small", "", small));
+    t.appendChild(s);
+    return t;
+}
+
+function psPanel(cls, title, ...kids) {
+    const p = el("div", cls);
+    if (title) p.appendChild(el("h3", "", title));
+    kids.forEach(k => p.appendChild(k));
+    return p;
+}
+function psSteps(items) {
+    const ol = el("ol");
+    items.forEach(t => ol.appendChild(el("li", "", t)));
+    return ol;
+}
+function psDetails(rows) {
+    const dl = el("dl", "ps-dl");
+    rows.forEach(([k, v]) => { dl.appendChild(el("dt", "", k)); dl.appendChild(el("dd", "", v)); });
+    return dl;
+}
+function psFoot() {
+    const f = el("div", "ps-foot");
+    f.appendChild(el("span", "", APP.id + " v" + APP.version));
+    f.appendChild(el("span", "", "github.com/shanemc92/back-stop"));
+    return f;
+}
+
 /* ---------- key card ---------- */
 
 async function printCard() {
@@ -2919,45 +3099,68 @@ async function printCard() {
     /* Broken on group boundaries by hand: left to wrap, a group was split
        across two lines on paper. */
     const key = [g.slice(0, 5), g.slice(5, 10), g.slice(10)].map(r => r.join("  ")).join("\n");
-    $("#cardKey").textContent = "RECOVERY KEY  (54 characters)\n\n" + key;
     /* The same key as a symbol, so it can be scanned and pasted instead of
        retyped. Small payload, so a low version and a generous module size. */
-    const qh = $("#cardQr");
-    qh.textContent = "";
-    try {
-        const node = qrNode(ks);
-        node.svg.setAttribute("width", "48mm");
-        node.svg.setAttribute("height", "48mm");
-        qh.appendChild(node.svg);
-        qh.hidden = false;
-    } catch (e) { qh.hidden = true; }
+    let node = null;
+    try { node = qrNode(ks, 50); } catch (e) { node = null; }
+
     /* Written for whoever finds this card, who may not be the person who
        printed it and may be reading it in a hurry. How to use it comes first;
        the format details that were here were no use to them, and the key
        derivation line did not even apply, since the card skips the passphrase. */
-    $("#cardMeta").textContent =
-        "TO USE IT\n" +
-        "  1. Open back-stop and choose From a file or From paper.\n" +
-        "  2. Choose Use recovery key instead.\n" +
-        "  3. Type the key above, or scan the square code and paste it.\n" +
-        "  4. Once in, choose Change passphrase to set a new passphrase.\n" +
-        "\n" +
-        "TYPING IT\n" +
-        "  Case and spaces do not matter. The letters I, L, O and U are never\n" +
-        "  used: if you see an I or an L, type 1. If you see an O, type 0.\n" +
-        "\n" +
-        "vault   : " + (state.meta.label || "(unlabelled)") + "\n" +
-        "printed : " + new Date().toISOString().slice(0, 10) + "\n" +
-        "This card stops working if the vault's key is later replaced.";
+    const sheet = el("section", "ps");
+    sheet.appendChild(psHead("Recovery key card"));
+    sheet.appendChild(psTitle("KEY", "Opens the vault on its own", "no passphrase needed"));
+
+    const box = el("div", "ps-key");
+    box.appendChild(el("div", "ps-key-label", "RECOVERY KEY - " + ks.length + " CHARACTERS"));
+    box.appendChild(el("div", "ps-key-text", key));
+    sheet.appendChild(box);
+
+    const cols = el("div", "ps-card-cols");
+    const sym = el("div", "ps-symbol");
+    if (node) {
+        const fr = el("div", "ps-frame");
+        fr.appendChild(node.svg);
+        sym.appendChild(fr);
+        sym.appendChild(el("div", "ps-cap", "scan it, then paste the text"));
+    }
+    cols.appendChild(sym);
+    const how = el("div");
+    how.appendChild(psPanel("ps-panel", "How to use this key", psSteps([
+        "Open back-stop and choose From a file or From paper.",
+        "Choose Use recovery key instead.",
+        "Type the key above, or scan the square code and paste it.",
+        "Once in, choose Change passphrase to set a new passphrase."
+    ])));
+    how.appendChild(psPanel("ps-panel", "Typing it",
+        el("p", "", "Case and spaces do not matter. The letters I, L, O and U are never used: " +
+                    "if you see an I or an L, type 1. If you see an O, type 0.")));
+    cols.appendChild(how);
+    sheet.appendChild(cols);
+
+    sheet.appendChild(psPanel("ps-panel", "Card details", psDetails([
+        ["Vault", state.meta.label || "(unlabelled)"],
+        ["Printed", today()],
+        ["Note", "This card stops working if the vault's key is later replaced."]
+    ])));
+    const warn = psPanel("ps-warn", "KEEP THIS CARD APART",
+        el("p", "", "Anyone who has this card and a copy of the vault - the file or the printed backup - " +
+                    "can read everything in it. Never store it with either."));
+    warn.style.marginTop = "3.5mm";
+    sheet.appendChild(warn);
+    sheet.appendChild(psFoot());
+
+    const host = $("#cardPage");
+    host.textContent = "";
+    host.appendChild(sheet);
     document.documentElement.setAttribute("data-print", "card");
     $("#panelCardPrint").hidden = false;
     printTitle("key-card");
     const clean = () => {
         document.documentElement.removeAttribute("data-print");
         $("#panelCardPrint").hidden = true;
-        $("#cardKey").textContent = "";
-        $("#cardQr").textContent = "";
-        $("#cardMeta").textContent = "";
+        host.textContent = "";
         printTitleRestore();
     };
     /* The key is on screen only while the dialog is up. onafterprint is the
@@ -3089,14 +3292,16 @@ function qrJoin(text) {
 const SVGNS = "http://www.w3.org/2000/svg";
 
 /* Printed edge of a backup symbol. A4 at 12mm margins leaves 186mm of
-   printable width and 273mm of height, and the page also carries a masthead,
-   a heading, intro prose and a caption, so this is deliberately well short of
-   the width: the symbol has to lose to the page, not the other way round. At
-   this size the densest symbol the tool will emit is still about 1.3mm a
-   module, many times what a phone camera resolves. */
-const QR_PRINT_MM = 151;
+   printable width and 273mm of height, and a sheet also carries a masthead, a
+   title, two panels, a warning and a footer, so this is deliberately well
+   short of the width: the symbol has to lose to the page, not the other way
+   round, and the sheet needs a few millimetres spare for a longer label or a
+   font that sets a little larger. At this size the densest symbol the tool
+   will emit is still about 1mm a module, many times what a phone camera
+   resolves. */
+const QR_PRINT_MM = 130;
 
-function qrNode(text) {
+function qrNode(text, mm) {
     const q = qrEncode(text);
     const qz = 4, dim = q.size + qz * 2;
     let d = "";
@@ -3104,8 +3309,8 @@ function qrNode(text) {
         if (q.matrix[r][c]) d += "M" + (c + qz) + " " + (r + qz) + "h1v1h-1z";
     const svg = document.createElementNS(SVGNS, "svg");
     svg.setAttribute("viewBox", "0 0 " + dim + " " + dim);
-    svg.setAttribute("width", QR_PRINT_MM + "mm");
-    svg.setAttribute("height", QR_PRINT_MM + "mm");
+    svg.setAttribute("width", (mm || QR_PRINT_MM) + "mm");
+    svg.setAttribute("height", (mm || QR_PRINT_MM) + "mm");
     svg.setAttribute("shape-rendering", "crispEdges");
     const bg = document.createElementNS(SVGNS, "rect");
     bg.setAttribute("width", String(dim));
@@ -3179,52 +3384,131 @@ function printPlain() {
     window.print();
 }
 
+/* The last page of a backup: what the codes hold and how to open them with
+   nothing but a pen, a phone and Python, for whoever has this in ten years
+   and not this tool. It repeats the README's technical reference on purpose,
+   since the README may not be anywhere they can reach. */
+function referencePage(env, mark) {
+    const iter = ((env[3] << 8) | env[4]) * 1000;
+    const sheet = el("section", "ps ps-ref");
+    sheet.appendChild(psHead("Reference page", mark));
+    sheet.appendChild(el("h3", "", "Reading this backup without back-stop"));
+    sheet.lastChild.style.cssText = "font-size:15pt;margin:4mm 0 3.5mm";
+
+    const table = el("table");
+    const thead = el("thead");
+    const hr = el("tr");
+    hr.appendChild(el("th", "", "Field"));
+    hr.appendChild(el("th", "", "Bytes"));
+    thead.appendChild(hr);
+    table.appendChild(thead);
+    const body = el("tbody");
+    [["Magic, the letters BS", "2"],
+     ["Envelope version", "1"],
+     ["PBKDF2 rounds divided by 1000, big endian", "2"],
+     ["PBKDF2 salt", "16"],
+     ["AES-GCM nonce for the wrapped key", "12"],
+     ["Wrapped 32-byte data key, with its 16-byte tag", "48"],
+     ["AES-GCM nonce for the body", "12"],
+     ["Flags: bit 0 is set when the body is gzipped", "1"],
+     ["Body ciphertext, with its 16-byte tag", "the rest"]].forEach(([k, n]) => {
+        const tr = el("tr");
+        tr.appendChild(el("td", "", k));
+        tr.appendChild(el("td", "n", n));
+        body.appendChild(tr);
+    });
+    table.appendChild(body);
+
+    sheet.appendChild(psPanel("ps-panel", "What the codes hold",
+        el("p", "", "Each code carries one piece of a single base64 string, written BS1:i/n: and " +
+                    "then the piece, where i is the sheet and n is how many sheets there are. " +
+                    "Join the pieces in order of i, leave the prefixes out, and base64-decode " +
+                    "the result. What comes out is this envelope, with its lengths in bytes:"),
+        table));
+
+    sheet.appendChild(psPanel("ps-panel", "Opening the envelope", psSteps([
+        "Passphrase: normalise it to Unicode NFKC, encode it as UTF-8, and derive a 32-byte key " +
+            "with PBKDF2-HMAC-SHA256 from the salt in the envelope. This backup uses " + iter + " rounds.",
+        "AES-256-GCM decrypt the wrapped key with that key and its nonce. The additional " +
+            "authenticated data, here and in step 3, is the ASCII text " + FORMAT + ". " +
+            "The result is the 32-byte data key.",
+        "AES-256-GCM decrypt the body with the data key and the body nonce. The recovery key " +
+            "card holds the data key itself, so with the card you start here.",
+        "If the flag bit is set, gunzip the result. It is JSON: the vault label and note, and " +
+            "every account with its codes."
+    ])));
+
+    const pre = el("pre", "", "python3 recover.py scanned.txt\npython3 recover.py --selftest");
+    sheet.appendChild(psPanel("ps-panel", "Or let recover.py do it", pre,
+        el("p", "", "Paste the text scanned off these codes, in any order, into a file and give " +
+                    "that file to recover.py. It needs Python 3.6 or newer and nothing else, and " +
+                    "it is in the repository named at the foot of this page. Releases carry a " +
+                    "SHA256SUMS file to check it against.")));
+    sheet.appendChild(psFoot());
+    return sheet;
+}
+
 async function printBackup() {
     if (!vault.open) return;
-    let chunks, env;
+    let chunks, env, nodes, mark;
     try {
         env = envBuild(await buildFile());
         chunks = qrChunks(b64(env));
+        nodes = chunks.map(t => qrNode(t, QR_PRINT_MM));
+        mark = await setMark(env);
     } catch (e) { return notify(e.message, true); }
 
     const host = $("#qrPages");
     host.textContent = "";
-    const stamp = new Date().toISOString();
+    const n = chunks.length;
+    const label = state.meta.label || "(unlabelled)";
+    const stamp = new Date().toISOString().slice(0, 16).replace("T", " ") + " UTC";
+    const accounts = state.items.length + (state.items.length === 1 ? " account" : " accounts");
     chunks.forEach((text, i) => {
-        const page = el("div", "qr-page");
-        if (chunks.length > 1) {
-            page.appendChild(el("div", "qr-warn",
-                "ALL " + chunks.length + " SHEETS ARE REQUIRED - KEEP THEM TOGETHER. " +
-                "This is sheet " + (i + 1) + ". Losing any one sheet loses every code in " +
-                "the vault, not a part of them, so do not split this set across locations. " +
-                "To hold a copy somewhere else, print a second full set of all " +
-                chunks.length 
-                + " sheets."));
-        }
-        const frame = el("div", "qr-frame");
-        let node;
-        try { node = qrNode(text); }
-        catch (e) { notify("Could not build the code: " + e.message, true); throw e; }
-        frame.appendChild(node.svg);
-        page.appendChild(frame);
-        page.appendChild(el("div", "log qr-cap",
-            "code " + (i + 1) + " of " + chunks.length +
-            "   qr version " + node.version + ", " + node.modules + " modules, error level M" +
-            "\nvault  : " + (state.meta.label || "(unlabelled)") +
-            "\nprinted: " + stamp +
-            "\nsize   : " + env.length + " bytes encrypted, " + state.items.length + " accounts"));
-        if (i === chunks.length - 1) {
-            page.appendChild(el("div", "prose qr-note",
-                "Envelope after base64 decoding, all lengths in bytes: magic BS (2), " +
-                "envelope version (1), PBKDF2 iterations divided by 1000 big endian (2), " +
-                "PBKDF2-HMAC-SHA256 salt (16), AES-256-GCM nonce for the wrapped key (12), " +
-                "wrapped 32 byte data key with its 16 byte tag (48), AES-256-GCM nonce for " +
-                "the body (12), flags with bit 0 set when the body is gzipped (1), then the " +
-                "body ciphertext and tag. The additional authenticated data for both is the " +
-                "ASCII string " + FORMAT + ". Concatenate the codes in order before decoding."));
-        }
-        host.appendChild(page);
+        const node = nodes[i];
+        const sheet = el("section", "ps");
+        sheet.appendChild(psHead("Encrypted backup", mark));
+        sheet.appendChild(psTitle("BACKUP", n > 1 ? "Sheet " + (i + 1) + " of " + n : "One sheet", label));
+
+        const sym = el("div", "ps-symbol");
+        const fr = el("div", "ps-frame");
+        fr.appendChild(node.svg);
+        sym.appendChild(fr);
+        sym.appendChild(el("div", "ps-fold", "DO NOT FOLD"));
+        sheet.appendChild(sym);
+
+        const cols = el("div", "ps-cols");
+        cols.appendChild(psPanel("ps-panel", "How to restore", psSteps([
+            "Scan this code with a phone camera and copy the text it shows." +
+                (n > 1 ? " Do the same for every sheet, in any order." : ""),
+            "Open back-stop and choose From paper.",
+            "Paste the text in and choose Read backup.",
+            "Unlock it with the passphrase or the key card."
+        ]), el("p", "", "No back-stop? See the last page.")));
+        cols.appendChild(psPanel("ps-panel", "Backup details", psDetails([
+            ["Vault", label],
+            ["Printed", stamp],
+            ["Set", mark.id],
+            ["Sheet", (i + 1) + " of " + n],
+            ["Contents", accounts],
+            ["Size", env.length + " bytes encrypted"],
+            ["Symbol", "v" + node.version + ", " + node.modules + " modules, error level M"]
+        ])));
+        sheet.appendChild(cols);
+
+        sheet.appendChild(n > 1
+            ? psPanel("ps-warn", "ALL " + n + " SHEETS ARE REQUIRED - KEEP THEM TOGETHER",
+                el("p", "", "This is sheet " + (i + 1) + ". Losing any one sheet loses every code in the " +
+                            "vault, not a part of them, so do not split this set across locations. To " +
+                            "hold a copy somewhere else, print a second full set of all " + n + " sheets."))
+            : psPanel("ps-warn", "KEEP SECURE",
+                el("p", "", "This backup is encrypted, but it opens with the passphrase or the key card, " +
+                            "so keep it apart from the key card. To hold a copy somewhere else, print a " +
+                            "second backup.")));
+        sheet.appendChild(psFoot());
+        host.appendChild(sheet);
     });
+    host.appendChild(referencePage(env, mark));
 
     document.documentElement.setAttribute("data-print", "qr");
     $("#panelQrPrint").hidden = false;
