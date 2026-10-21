@@ -4,5 +4,9 @@
   Header always set Referrer-Policy "no-referrer"
   Header always set Permissions-Policy "geolocation=(), microphone=(), camera=(), interest-cohort=()"
   Header always set Content-Security-Policy "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+  # The scanner page is the one place the camera is allowed.
+  <Files "scan.html">
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=(self), interest-cohort=()"
+  </Files>
 </IfModule>
 Options -Indexes
