@@ -1175,85 +1175,119 @@ textarea.field.blurred {
 /* ---------- printed sheets ---------------------------------------------
    The paper backup and the key card are the two things someone may pick up
    years from now with no idea what they are, so they are laid out as small
-   documents of their own: a masthead, a block-letter title, the symbol in a
-   frame, and a few plain panels saying what to do. They keep one light
-   palette in every design and mode, and nothing on them depends on colour
-   reaching the paper: the warning has a heavy border and bold type, and the
-   set mark is printed as text as well as colour.
+   documents of their own, in the same language as the tool: mono for labels
+   and data, a navy spine down the left edge that carries what the sheet is,
+   which one of how many, and its set, then ruled and numbered sections, the
+   symbol framed by scanner corners, and a hazard strip over the one warning
+   that matters. They keep one light palette in every design and mode, and
+   nothing on them depends on colour reaching the paper: the spine is dark,
+   the warning is a heavy rule and a striped bar, and the set is printed as
+   text as well as colour.
 
    The symbols themselves are machine read, so they are the one element that
    does not follow even this palette: true black on true white, with the quiet
-   zone inside the SVG. The frame around one is outside the quiet zone.
+   zone inside the SVG. The corners around one sit outside the quiet zone.
    ------------------------------------------------------------------------ */
 .ps {
-    --ps-ink: #1f2d3d; --ps-mute: #52606d; --ps-line: #c3cbd3; --ps-panel: #f5f7fa;
-    --ps-navy: #243b53; --ps-blue: #66a0ea;
-    width: 186mm; max-width: 100%;
-    margin: 0;
+    --ps-ink: #14202e; --ps-mute: #566574; --ps-line: #c9d1d9;
+    --ps-navy: #1c3350; --ps-blue: #66a0ea;
+    position: relative; box-sizing: border-box;
+    display: flex; flex-direction: column;
+    width: 186mm; max-width: 100%; min-height: 252mm; margin: 0; padding: 0 0 0 12mm;
     background: #fff; color: var(--ps-ink);
     font-family: Helvetica, Arial, sans-serif; font-size: 9pt; line-height: 1.4;
+    counter-reset: sec;
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
     break-inside: avoid; page-break-inside: avoid;
 }
 .ps + .ps { break-before: page; page-break-before: always; }
-.ps h3 {
-    margin: 0 0 1.5mm; font: 700 10.5pt/1.25 Helvetica, Arial, sans-serif;
-    letter-spacing: 0; text-transform: none; color: var(--ps-ink);
-}
-.ps h3::before, .ps h3::after { content: none; }
 .ps p { margin: 1.5mm 0 0; max-width: none; color: inherit; }
 
-.ps-head {
-    display: flex; align-items: center; justify-content: space-between; gap: 6mm;
-    padding-bottom: 2.5mm; border-bottom: 0.4mm solid var(--ps-ink);
+/* The spine: what this is, which one, and its set, set up the edge. */
+.ps-rail {
+    position: absolute; left: 0; top: 0; bottom: 0; width: 7mm;
+    display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+    padding: 4mm 0 0; background: var(--ps-navy); color: #fff;
 }
-.ps-brand { display: flex; align-items: center; gap: 2.5mm; font: 700 13pt/1 Helvetica, Arial, sans-serif; }
-.ps-brand svg { width: 8mm; height: 8mm; color: var(--ps-navy); flex: none; }
-.ps-kind { text-align: right; }
-.ps-kind b { display: block; font-size: 8pt; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ps-mute); }
-.ps-swatches { display: flex; gap: 1.6mm; justify-content: flex-end; align-items: center; margin-top: 1.2mm; }
-.ps-setid { margin-left: 1mm; font: 700 8.5pt/1 var(--font); letter-spacing: 0.08em; }
-.ps-swatch { width: 5mm; height: 5mm; border: 0.3mm solid #333; border-radius: 1mm; }
+.ps-rail-text {
+    writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap;
+    font: 700 7.2pt/1 var(--font); letter-spacing: 0.22em; text-transform: uppercase;
+}
+.ps-rail-set { display: flex; flex-direction: column; width: 100%; }
+.ps-rail-set i { display: block; height: 7mm; border-top: 0.3mm solid #fff; }
 
-.ps-title { display: flex; align-items: flex-end; justify-content: space-between; gap: 6mm; margin: 3.5mm 0 3mm; }
-.ps-banner svg { display: block; height: 12mm; width: auto; }
-.ps-sub { text-align: right; font-weight: 700; font-size: 10.5pt; line-height: 1.3; min-width: 0; max-width: 100mm; }
-.ps-sub small {
-    display: block; font: 400 8pt/1.4 var(--font); color: var(--ps-mute);
+.ps-head {
+    display: grid; grid-template-columns: auto 1fr auto; align-items: end; gap: 5mm;
+    padding: 0 0 2.2mm; border-bottom: 0.7mm solid var(--ps-navy);
+}
+.ps-brand { display: flex; align-items: center; gap: 2mm; font: 700 10.5pt/1 var(--font); letter-spacing: -0.01em; }
+.ps-brand svg { width: 7mm; height: 7mm; color: var(--ps-navy); flex: none; }
+.ps h1.ps-title {
+    margin: 0; justify-self: end; text-align: right;
+    font: 700 14pt/1.1 Helvetica, Arial, sans-serif; letter-spacing: 0.03em; text-transform: uppercase; color: var(--ps-navy);
+}
+.ps-count { font: 400 20pt/1 var(--font); color: var(--ps-mute); letter-spacing: -0.02em; }
+.ps-count b { color: var(--ps-navy); }
+.ps-sub {
+    margin: 1.8mm 0 3.5mm; font: 8pt/1.4 var(--font); color: var(--ps-mute);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
-.ps-symbol { text-align: center; margin: 0 0 3.5mm; }
+.ps-symbol { margin: 0 0 3.5mm; text-align: center; }
 .ps-frame {
-    display: inline-block; padding: 3mm; background: #fff;
-    border: 0.35mm dotted #8793a0; border-radius: 3mm;
+    --b: var(--ps-navy);
+    display: inline-block; padding: 4mm;
+    background:
+        linear-gradient(var(--b), var(--b)) 0 0 / 9mm 0.7mm no-repeat,
+        linear-gradient(var(--b), var(--b)) 0 0 / 0.7mm 9mm no-repeat,
+        linear-gradient(var(--b), var(--b)) 100% 0 / 9mm 0.7mm no-repeat,
+        linear-gradient(var(--b), var(--b)) 100% 0 / 0.7mm 9mm no-repeat,
+        linear-gradient(var(--b), var(--b)) 0 100% / 9mm 0.7mm no-repeat,
+        linear-gradient(var(--b), var(--b)) 0 100% / 0.7mm 9mm no-repeat,
+        linear-gradient(var(--b), var(--b)) 100% 100% / 9mm 0.7mm no-repeat,
+        linear-gradient(var(--b), var(--b)) 100% 100% / 0.7mm 9mm no-repeat,
+        #fff;
 }
 .ps-frame svg { display: block; }
-.ps-fold { margin-top: 2mm; font: italic 700 10.5pt/1 Helvetica, Arial, sans-serif; letter-spacing: 0.06em; }
-
-.ps-cols { display: grid; grid-template-columns: 1.15fr 1fr; gap: 3.5mm; margin-bottom: 3.5mm; }
-.ps-panel {
-    background: var(--ps-panel); border: 0.3mm solid var(--ps-line); border-radius: 2.5mm;
-    padding: 3mm 3.5mm; break-inside: avoid; page-break-inside: avoid;
+.ps-fold {
+    display: flex; align-items: center; gap: 3mm; max-width: 110mm; margin: 2.4mm auto 0;
+    font: 700 7.5pt/1 var(--font); letter-spacing: 0.26em;
 }
-.ps-panel ol { margin: 0; padding-left: 4.5mm; }
-.ps-panel li { margin: 0 0 0.8mm; }
-.ps-dl { display: grid; grid-template-columns: max-content 1fr; column-gap: 3mm; row-gap: 0.5mm; margin: 0; }
-.ps-dl dt { color: var(--ps-mute); }
+.ps-fold::before, .ps-fold::after { content: ""; flex: 1; border-top: 0.25mm solid var(--ps-ink); }
+
+.ps-cols { display: grid; grid-template-columns: 1.15fr 1fr; gap: 6mm; margin-bottom: 3.5mm; }
+.ps-panel { padding: 1.8mm 0 0; border-top: 0.7mm solid var(--ps-navy); break-inside: avoid; page-break-inside: avoid; }
+.ps h3 {
+    margin: 0 0 1.6mm; font: 700 7.6pt/1.2 var(--font); letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ps-navy);
+}
+.ps h3::before { counter-increment: sec; content: counter(sec, decimal-leading-zero) "  "; color: var(--ps-blue); }
+.ps h3::after { content: none; }
+.ps-panel ol { margin: 0; padding-left: 4.4mm; }
+.ps-panel li { margin: 0 0 0.8mm; padding-left: 0.6mm; }
+.ps-panel li::marker { font: 700 8pt var(--font); color: var(--ps-navy); }
+.ps-dl { display: grid; grid-template-columns: max-content 1fr; column-gap: 3mm; margin: 0; }
+.ps-dl dt, .ps-dl dd { padding: 0.6mm 0; border-bottom: 0.15mm solid var(--ps-line); }
+.ps-dl dt { font: 7pt/1.8 var(--font); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ps-mute); }
 /* A long label wraps, but never to more than two lines: the sheet has a few
    millimetres spare, not a page. */
 .ps-dl dd {
     margin: 0; font: 8.5pt/1.4 var(--font); overflow-wrap: anywhere;
     display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
 }
-.ps-warn {
-    margin-bottom: 3.5mm; padding: 3mm 3.5mm; border-radius: 2.5mm;
-    background: #fff4cc; border: 0.5mm solid #6b5200; color: #3d2f00;
+
+/* The warning: a striped bar over a heavy box, which survives a mono printer
+   and does not need any colour to be read. */
+.ps-warn { margin: 0 0 3mm; border: 0.5mm solid var(--ps-ink); background: #fff; color: var(--ps-ink); }
+.ps-warn::before {
+    content: ""; display: block; height: 2.8mm; border-bottom: 0.5mm solid var(--ps-ink);
+    background: repeating-linear-gradient(-45deg, var(--ps-ink) 0 1.5mm, #fff 1.5mm 3mm);
 }
-.ps-warn h3 { color: #3d2f00; letter-spacing: 0.02em; }
-.ps-warn p:first-of-type { margin-top: 0; }
+.ps-warn h3 { margin: 2.2mm 3.5mm 0.8mm; font: 700 9pt/1.25 Helvetica, Arial, sans-serif; letter-spacing: 0.04em; color: var(--ps-ink); }
+.ps-warn h3::before { content: none; }
+.ps-warn p { margin: 0 3.5mm 2.4mm; }
 .ps-foot {
-    display: flex; justify-content: space-between; gap: 6mm;
+    display: flex; justify-content: space-between; gap: 6mm; margin-top: auto;
     padding-top: 2mm; border-top: 0.2mm solid var(--ps-line);
     font: 7.5pt/1.4 var(--font); color: var(--ps-mute);
 }
@@ -1261,29 +1295,35 @@ textarea.field.blurred {
 /* The reference page is text, so it is allowed to be the last page by itself
    rather than forcing the last symbol to share it. */
 .ps-ref table { width: 100%; border-collapse: collapse; margin: 1.5mm 0 2mm; }
-.ps-ref th, .ps-ref td { padding: 0.9mm 2mm; border-bottom: 0.2mm solid var(--ps-line); text-align: left; vertical-align: top; }
-.ps-ref th { font-size: 8pt; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ps-mute); }
-.ps-ref td.n { text-align: right; font-family: var(--font); white-space: nowrap; }
+.ps-ref th, .ps-ref td { padding: 0.9mm 2mm 0.9mm 0; border-bottom: 0.15mm solid var(--ps-line); text-align: left; vertical-align: top; }
+.ps-ref th { font: 700 7pt/1.4 var(--font); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ps-mute); }
+.ps-ref td.n { text-align: right; font-family: var(--font); white-space: nowrap; padding-right: 0; }
 .ps-ref code, .ps-ref pre { font: 8.5pt/1.5 var(--font); }
-.ps-ref pre { margin: 1.5mm 0 0; padding: 2mm 3mm; background: #fff; border: 0.2mm solid var(--ps-line); border-radius: 1.5mm; white-space: pre-wrap; }
-.ps-ref .ps-panel + .ps-panel { margin-top: 3.5mm; }
-.ps-ref .ps-foot { margin-top: 3.5mm; }
+.ps-ref pre { margin: 1.5mm 0 0; padding: 2mm 3mm; max-height: none; overflow: visible; background: #fff; border: 0.25mm solid var(--ps-ink); border-radius: 0; white-space: pre-wrap; }
+.ps-ref .ps-panel { margin-bottom: 4mm; }
+.ps-ref .ps-foot { margin-top: auto; }
 
 /* The key itself: set large, in groups, because it is read and retyped far
-   more often than it is scanned. */
-.ps-key { margin: 0 0 3.5mm; padding: 4mm 5mm; border: 0.5mm solid var(--ps-ink); border-radius: 2.5mm; }
-.ps-key-label { font: 700 8pt/1 Helvetica, Arial, sans-serif; letter-spacing: 0.14em; color: var(--ps-mute); }
-.ps-key-text { margin-top: 3mm; font: 400 20pt/2 var(--font); letter-spacing: 0.06em; white-space: pre; }
-.ps-card-cols { display: grid; grid-template-columns: 62mm 1fr; gap: 3.5mm; align-items: start; margin-bottom: 3.5mm; }
+   more often than it is scanned. It sits in a plate whose legend breaks the
+   border. */
+.ps-key { position: relative; margin: 4.5mm 0 5mm; padding: 6.5mm 5mm 2.5mm; border: 0.7mm solid var(--ps-navy); }
+.ps-key-label {
+    position: absolute; top: -2.2mm; left: 4mm; padding: 0 2.5mm; background: #fff;
+    font: 700 7.4pt/1 var(--font); letter-spacing: 0.16em; color: var(--ps-navy);
+}
+.ps-key-text { font: 700 19pt/1.9 var(--font); letter-spacing: 0.05em; white-space: pre; }
+.ps-card-cols { display: grid; grid-template-columns: 62mm 1fr; gap: 6mm; align-items: start; margin-bottom: 3.5mm; }
 .ps-card-cols .ps-symbol { margin: 0; }
 .ps-card-cols .ps-panel + .ps-panel { margin-top: 3.5mm; }
-.ps-cap { margin-top: 1.5mm; font: 8pt/1.3 var(--font); color: var(--ps-mute); text-align: center; }
+.ps-cap { margin-top: 1.5mm; font: 7.5pt/1.3 var(--font); color: var(--ps-mute); text-align: center; }
 
 /* ---------- wallet card -------------------------------------------------
    The key card at credit-card size: ISO/IEC 7810 ID-1, 85.6 by 53.98 mm with
    3.18 mm corners. Front and back are drawn at exactly that size, so the sheet
-   has to be printed at 100 per cent. The type is small, so what has to be read
-   is set as large as the card allows, and everything else is kept short. */
+   has to be printed at 100 per cent. The card carries the same navy spine as
+   the sheets, the type is small, so what has to be read is set as large as the
+   card allows, and everything else is kept short. */
+.ps.pw { min-height: 0; }
 .pw-note { margin: 4mm 0 5mm; }
 .pw-note p { margin: 0 0 1.5mm; }
 .pw-ruler { display: flex; align-items: center; gap: 2.5mm; margin-top: 2mm; font: 7pt/1 var(--font); color: var(--ps-mute); }
@@ -1292,35 +1332,43 @@ textarea.field.blurred {
     border-left: 0.3mm solid #000; border-right: 0.3mm solid #000;
     background: linear-gradient(#000, #000) center / 100% 0.3mm no-repeat;
 }
-.pw-side { margin: 0 0 1.5mm; font: 700 7pt/1 Helvetica, Arial, sans-serif; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ps-mute); }
+.pw-side { margin: 0 0 1.5mm; font: 700 7pt/1 var(--font); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ps-mute); }
 .pw-face { margin-bottom: 6mm; }
 .pw-card {
-    box-sizing: border-box; width: 85.6mm; height: 53.98mm; padding: 3.5mm;
+    box-sizing: border-box; width: 85.6mm; height: 53.98mm;
     border: 0.25mm dotted #555; border-radius: 3.18mm; background: #fff;
-    display: flex; gap: 3.5mm; overflow: hidden;
+    display: flex; overflow: hidden;
 }
-.pw-qr { flex: 0 0 31mm; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.pw-spine { flex: 0 0 6mm; display: flex; align-items: center; justify-content: center; background: var(--ps-navy); color: #fff; }
+.pw-spine span {
+    writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap;
+    font: 700 5.4pt/1 var(--font); letter-spacing: 0.24em; text-transform: uppercase;
+}
+.pw-in { flex: 1; min-width: 0; padding: 3mm; display: flex; gap: 3mm; }
+.pw-qr { flex: 0 0 29mm; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .pw-qr svg { display: block; }
 .pw-cap { margin-top: 1.2mm; font: 5.2pt/1.2 var(--font); color: var(--ps-mute); text-align: center; }
 .pw-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.pw-brand { display: flex; align-items: center; gap: 1.6mm; font: 700 8.5pt/1 Helvetica, Arial, sans-serif; }
-.pw-brand svg { width: 5mm; height: 5mm; color: var(--ps-navy); flex: none; }
-.pw-kind { margin: 2mm 0 1.4mm; font: 700 5.2pt/1 Helvetica, Arial, sans-serif; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ps-mute); }
-.pw-key { font: 700 8pt/1.55 var(--font); letter-spacing: 0.02em; white-space: pre; }
+.pw-brand { display: flex; align-items: center; gap: 1.6mm; font: 700 8pt/1 var(--font); }
+.pw-brand svg { width: 4.6mm; height: 4.6mm; color: var(--ps-navy); flex: none; }
+.pw-kind { margin: 2mm 0 1mm; font: 700 5.2pt/1 var(--font); letter-spacing: 0.16em; text-transform: uppercase; color: var(--ps-navy); }
+.pw-key div { padding: 0.7mm 0; border-bottom: 0.15mm solid var(--ps-line); font: 700 7.4pt/1.35 var(--font); letter-spacing: 0.02em; white-space: pre; }
 .pw-meta {
     margin-top: auto; font: 5.4pt/1.4 var(--font); color: var(--ps-mute); white-space: pre-line; overflow-wrap: anywhere;
     display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
 }
-.pw-back { flex-direction: column; gap: 0; }
-.pw-back .pw-kind { margin-top: 0; }
-.pw-back ol { margin: 0; padding-left: 3.6mm; font: 6.1pt/1.4 Helvetica, Arial, sans-serif; }
-.pw-back li { margin: 0 0 0.7mm; }
+.pw-col { flex-direction: column; gap: 0; }
+.pw-col .pw-kind { margin-top: 0; }
+.pw-col ol { margin: 0; padding-left: 3.6mm; font: 6.1pt/1.4 Helvetica, Arial, sans-serif; }
+.pw-col li { margin: 0 0 0.7mm; }
 .pw-tip { margin: 1mm 0 0; font: 5.8pt/1.35 Helvetica, Arial, sans-serif; color: var(--ps-mute); }
-.pw-warn {
-    margin-top: 1.8mm; padding: 1.4mm 2mm; border: 0.4mm solid #6b5200; border-radius: 1.5mm;
-    background: #fff4cc; color: #3d2f00; font: 6pt/1.35 Helvetica, Arial, sans-serif;
+.pw-warn { margin-top: 1.8mm; border: 0.4mm solid var(--ps-ink); font: 6pt/1.35 Helvetica, Arial, sans-serif; color: var(--ps-ink); }
+.pw-warn::before {
+    content: ""; display: block; height: 1.8mm; border-bottom: 0.4mm solid var(--ps-ink);
+    background: repeating-linear-gradient(-45deg, var(--ps-ink) 0 1mm, #fff 1mm 2mm);
 }
-.pw-back .pw-meta { margin-top: auto; padding-top: 1mm; }
+.pw-warn span { display: block; padding: 1.2mm 2mm 1.3mm; }
+.pw-col .pw-meta { margin-top: auto; padding-top: 1mm; }
 
 /* Two sheets to a landscape A4 page. Each sheet is drawn at its usual size and
    scaled to fit half the page, with the fold between them where no code is. The
@@ -1332,7 +1380,12 @@ textarea.field.blurred {
 .ps-half { position: relative; flex: 0 0 142.5mm; height: 196mm; overflow: hidden; }
 /* The panel's own bottom margin would push the last page over by a few millimetres. */
 #panelQrPrint { margin-bottom: 0; }
-.ps-half .ps { position: absolute; top: 0; left: 4mm; margin: 0; width: 186mm; max-width: none; transform: scale(0.72); transform-origin: top left; }
+.ps-half .ps { position: absolute; top: 0; left: 5.6mm; margin: 0; width: 186mm; max-width: none; zoom: 0.72; }
+/* Where zoom is not supported the sheet is scaled instead, which is the same picture
+   but is cut up by the page as if it were full size. */
+@supports not (zoom: 1) {
+    .ps-half .ps { left: 4mm; transform: scale(0.72); transform-origin: top left; }
+}
 
 /* Plaintext sheet. Dense on purpose: the fewer pages, the fewer things to
    lose. Three columns of 9pt fits roughly two hundred codes on A4. */
@@ -3127,43 +3180,6 @@ function reblurAll() { setEdBlur(true); setNoteBlur(true); }
    parts. None of them touches the vault: callers pass in what to print.
    ------------------------------------------------------------------------ */
 
-/* 5 by 7 block letters, just the ones the titles use. */
-const PIX_FONT = {
-    A: [".###.", "#...#", "#...#", "#####", "#...#", "#...#", "#...#"],
-    B: ["####.", "#...#", "#...#", "####.", "#...#", "#...#", "####."],
-    C: [".####", "#....", "#....", "#....", "#....", "#....", ".####"],
-    E: ["#####", "#....", "#....", "####.", "#....", "#....", "#####"],
-    K: ["#...#", "#..#.", "#.#..", "##...", "#.#..", "#..#.", "#...#"],
-    P: ["####.", "#...#", "#...#", "####.", "#....", "#....", "#...."],
-    U: ["#...#", "#...#", "#...#", "#...#", "#...#", "#...#", ".###."],
-    Y: ["#...#", "#...#", ".#.#.", "..#..", "..#..", "..#..", "..#.."]
-};
-
-/* A block-letter title with a drop shadow, as one SVG so it prints as vector
-   at whatever size the sheet gives it. Navy over the accent blue. */
-function pixelBanner(word) {
-    const cols = word.length * 6 - 1, shade = 0.4;
-    const svg = document.createElementNS(SVGNS, "svg");
-    svg.setAttribute("viewBox", "0 0 " + (cols + shade) + " " + (7 + shade));
-    svg.setAttribute("shape-rendering", "crispEdges");
-    svg.setAttribute("role", "img");
-    svg.setAttribute("aria-label", word.toLowerCase());
-    const layer = (fill, off) => {
-        let d = "";
-        [...word].forEach((ch, i) => PIX_FONT[ch].forEach((row, r) => {
-            for (let c = 0; c < 5; c++)
-                if (row[c] === "#") d += "M" + (i * 6 + c + off) + " " + (r + off) + "h1v1h-1z";
-        }));
-        const p = document.createElementNS(SVGNS, "path");
-        p.setAttribute("d", d);
-        p.setAttribute("fill", fill);
-        svg.appendChild(p);
-    };
-    layer("#66a0ea", shade);
-    layer("#243b53", 0);
-    return svg;
-}
-
 const PS_COLOURS = ["#c62828", "#1d4ed8", "#15803d", "#f59e0b", "#7e22ce",
                     "#92400e", "#111827", "#db2777", "#0891b2", "#65a30d"];
 
@@ -3185,40 +3201,42 @@ async function setMark(bytes) {
     return { id, colours };
 }
 
-/* Masthead: the logo and name on the left, what this sheet is on the right,
-   and for a backup the set mark under it. */
-function psHead(kind, mark) {
+/* The spine and the header. rail is what runs up the left edge, in capitals,
+   with the set's id after it; the set's three colours are stacked at the foot
+   of the spine. count is [this one, of how many]. */
+function psHead(rail, mark, title, count) {
+    const f = document.createDocumentFragment();
+    const sp = el("div", "ps-rail");
+    sp.appendChild(el("span", "ps-rail-text", rail + (mark ? "  -  set " + mark.id : "")));
+    if (mark) {
+        const set = el("span", "ps-rail-set");
+        mark.colours.forEach(c => {
+            const i = el("i");
+            i.style.background = c;
+            set.appendChild(i);
+        });
+        sp.appendChild(set);
+    }
+    f.appendChild(sp);
     const head = el("div", "ps-head");
     const brand = el("div", "ps-brand");
     brand.appendChild($(".topbar .logo svg").cloneNode(true));
     brand.appendChild(el("span", "", APP.id));
     head.appendChild(brand);
-    const side = el("div", "ps-kind");
-    side.appendChild(el("b", "", kind));
-    if (mark) {
-        const row = el("div", "ps-swatches");
-        mark.colours.forEach(c => {
-            const s = el("span", "ps-swatch");
-            s.style.background = c;
-            row.appendChild(s);
-        });
-        row.appendChild(el("span", "ps-setid", "SET " + mark.id));
-        side.appendChild(row);
+    head.appendChild(el("h1", "ps-title", title));
+    if (count) {
+        const c = el("div", "ps-count");
+        c.appendChild(el("b", "", String(count[0]).padStart(2, "0")));
+        c.appendChild(document.createTextNode("/" + String(count[1]).padStart(2, "0")));
+        head.appendChild(c);
+    } else {
+        head.appendChild(el("span"));
     }
-    head.appendChild(side);
-    return head;
+    f.appendChild(head);
+    return f;
 }
 
-function psTitle(word, line, small) {
-    const t = el("div", "ps-title");
-    const b = el("div", "ps-banner");
-    b.appendChild(pixelBanner(word));
-    t.appendChild(b);
-    const s = el("div", "ps-sub", line);
-    if (small) s.appendChild(el("small", "", small));
-    t.appendChild(s);
-    return t;
-}
+const psSub = text => el("div", "ps-sub", text);
 
 function psPanel(cls, title, ...kids) {
     const p = el("div", cls);
@@ -3262,8 +3280,8 @@ async function printCard() {
        the format details that were here were no use to them, and the key
        derivation line did not even apply, since the card skips the passphrase. */
     const sheet = el("section", "ps");
-    sheet.appendChild(psHead("Recovery key card"));
-    sheet.appendChild(psTitle("KEY", "Opens the vault on its own", "no passphrase needed"));
+    sheet.appendChild(psHead("Recovery key card  -  keep apart", null, "Recovery key card", null));
+    sheet.appendChild(psSub("opens the vault on its own, no passphrase needed"));
 
     const box = el("div", "ps-key");
     box.appendChild(el("div", "ps-key-label", "RECOVERY KEY - " + ks.length + " CHARACTERS"));
@@ -3335,14 +3353,14 @@ async function printWallet() {
     if (!vault.rawKey) return;
     const ks = await keyString(vault.rawKey);
     const g = groups(ks, 4);
-    const rows = [g.slice(0, 5), g.slice(5, 10), g.slice(10)].map(r => r.join(" ")).join("\n");
+    const rows = [g.slice(0, 5), g.slice(5, 10), g.slice(10)].map(r => r.join(" "));
     /* Version 4, 41 modules with the quiet zone, so about 0.75mm a module at
        this size: fine for a phone, and for the camera in back-stop. */
     let node = null;
     try { node = qrNode(ks, 31); } catch (e) { node = null; }
 
     const sheet = el("section", "ps pw");
-    sheet.appendChild(psHead("Wallet key card"));
+    sheet.appendChild(psHead("Wallet key card  -  keep apart", null, "Wallet key card", null));
 
     const note = el("div", "pw-note");
     note.appendChild(el("h3", "", "Credit-card size"));
@@ -3355,39 +3373,56 @@ async function printWallet() {
     note.appendChild(ruler);
     sheet.appendChild(note);
 
+    /* Each face has the spine down its left edge, as the sheets do. */
+    const spine = text => {
+        const d = el("div", "pw-spine");
+        d.appendChild(el("span", "", text));
+        return d;
+    };
+
     /* Front: the square code, and the key in the largest type the card allows. */
     const front = el("div", "pw-card");
+    front.appendChild(spine("Recovery key"));
+    const fin = el("div", "pw-in");
     const qr = el("div", "pw-qr");
     if (node) {
         qr.appendChild(node.svg);
         qr.appendChild(el("div", "pw-cap", "scan to unlock"));
     }
-    front.appendChild(qr);
+    fin.appendChild(qr);
     const main = el("div", "pw-main");
     const brand = el("div", "pw-brand");
     brand.appendChild($(".topbar .logo svg").cloneNode(true));
     brand.appendChild(el("span", "", APP.id));
     main.appendChild(brand);
-    main.appendChild(el("div", "pw-kind", "Recovery key"));
-    main.appendChild(el("div", "pw-key", rows));
+    main.appendChild(el("div", "pw-kind", "Recovery key - " + ks.length + " characters"));
+    const keyBox = el("div", "pw-key");
+    rows.forEach(r => keyBox.appendChild(el("div", "", r)));
+    main.appendChild(keyBox);
     main.appendChild(el("div", "pw-meta", (state.meta.label || "(unlabelled)") + "\n" + today()));
-    front.appendChild(main);
+    fin.appendChild(main);
+    front.appendChild(fin);
 
     /* Back: how to use it, and the one rule about where to keep it. */
-    const back = el("div", "pw-card pw-back");
-    back.appendChild(el("div", "pw-kind", "How to use this card"));
-    back.appendChild(psSteps([
+    const back = el("div", "pw-card");
+    back.appendChild(spine("How to use"));
+    const bin = el("div", "pw-in pw-col");
+    bin.appendChild(el("div", "pw-kind", "How to use this card"));
+    bin.appendChild(psSteps([
         "Open back-stop. Choose From a file or From paper.",
         "Choose Scan key card and hold this card to the camera, or Type the recovery key from the front.",
         "Once in, choose Change passphrase."
     ]));
-    back.appendChild(el("p", "pw-tip", "Case and spaces do not matter. The letters I, L, O and U are never used: " +
+    bin.appendChild(el("p", "pw-tip", "Case and spaces do not matter. The letters I, L, O and U are never used: " +
         "read I or L as 1, and O as 0."));
     const warn = el("div", "pw-warn");
-    warn.appendChild(el("b", "", "KEEP APART. "));
-    warn.appendChild(el("span", "", "This opens the vault on its own. Never carry it with your printed backup or vault file."));
-    back.appendChild(warn);
-    back.appendChild(el("div", "pw-meta", APP.id + " v" + APP.version + " - github.com/shanemc92/back-stop"));
+    const ws = el("span");
+    ws.appendChild(el("b", "", "KEEP APART. "));
+    ws.appendChild(document.createTextNode("This opens the vault on its own. Never carry it with your printed backup or vault file."));
+    warn.appendChild(ws);
+    bin.appendChild(warn);
+    bin.appendChild(el("div", "pw-meta", APP.id + " v" + APP.version + " - github.com/shanemc92/back-stop"));
+    back.appendChild(bin);
 
     [["Front", front], ["Back", back]].forEach(([label, card]) => {
         const face = el("div", "pw-face");
@@ -3541,9 +3576,9 @@ const SVGNS = "http://www.w3.org/2000/svg";
    short of the width: the symbol has to lose to the page, not the other way
    round, and the sheet needs a few millimetres spare for a longer label or a
    font that sets a little larger. At this size the densest symbol the tool
-   will emit is still about 1mm a module, many times what a phone camera
+   will emit is still about 1.1mm a module, many times what a phone camera
    resolves. */
-const QR_PRINT_MM = 130;
+const QR_PRINT_MM = 136;
 
 function qrNode(text, mm) {
     const q = qrEncode(text);
@@ -3635,9 +3670,8 @@ function printPlain() {
 function referencePage(env, mark) {
     const iter = ((env[3] << 8) | env[4]) * 1000;
     const sheet = el("section", "ps ps-ref");
-    sheet.appendChild(psHead("Reference page", mark));
-    sheet.appendChild(el("h3", "", "Reading this backup without back-stop"));
-    sheet.lastChild.style.cssText = "font-size:15pt;margin:4mm 0 3.5mm";
+    sheet.appendChild(psHead("Reference page", mark, "Opening this without back-stop", null));
+    sheet.appendChild(psSub("how the codes are put together, and how to open them with Python alone"));
 
     const table = el("table");
     const thead = el("thead");
@@ -3713,8 +3747,9 @@ async function printBackup() {
     chunks.forEach((text, i) => {
         const node = nodes[i];
         const sheet = el("section", "ps");
-        sheet.appendChild(psHead("Encrypted backup", mark));
-        sheet.appendChild(psTitle("BACKUP", n > 1 ? "Sheet " + (i + 1) + " of " + n : "One sheet", label));
+        sheet.appendChild(psHead("Backup" + (n > 1 ? "  -  sheet " + (i + 1) + " of " + n : ""), mark,
+                                 "Encrypted backup", n > 1 ? [i + 1, n] : null));
+        sheet.appendChild(psSub(label + "  |  printed " + stamp));
 
         const sym = el("div", "ps-symbol");
         const fr = el("div", "ps-frame");

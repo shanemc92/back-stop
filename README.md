@@ -97,11 +97,12 @@ places turns one point of failure into three. Keep the sheets together, and for
 a copy somewhere else, print a second complete set. Each sheet carries a
 reminder of this.
 
-Every sheet of one print carries the same **set mark**: three coloured squares
-and a six-character code. It is worked out from the backup itself, so a second
-export, which holds different ciphertext, gets a different mark. If two prints
-ever end up in the same pile, the marks tell you which sheets go together. The
-code is there as text because a black-and-white printer drops the colours. The
+Every sheet of one print carries the same **set mark**: three bands of colour at
+the foot of the navy strip down its left edge, and a six-character code printed
+up the strip. It is worked out from the backup itself, so a second export, which
+holds different ciphertext, gets a different mark. If two prints ever end up in
+the same pile, the marks tell you which sheets go together. The code is there as
+text because a black-and-white printer drops the colours. The
 last page of every backup explains, for someone who has never seen back-stop,
 how to open it with nothing but Python.
 
