@@ -1,17 +1,6 @@
-# Camera access is off everywhere except the scanner page, and the rules are
-# kept apart on purpose: where several rules match a path some hosts merge a
-# header instead of replacing it, which would leave a muddled policy.
 /*
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   Referrer-Policy: no-referrer
-  Content-Security-Policy: default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
-
-/
-  Permissions-Policy: geolocation=(), microphone=(), camera=(), interest-cohort=()
-
-/index.html
-  Permissions-Policy: geolocation=(), microphone=(), camera=(), interest-cohort=()
-
-/scan.html
   Permissions-Policy: geolocation=(), microphone=(), camera=(self), interest-cohort=()
+  Content-Security-Policy: default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'

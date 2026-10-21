@@ -1038,7 +1038,6 @@ html[data-design="contour"] .notification.error::before { background: var(--bad)
 #printNotice { display: none; }
 #printNotice p { max-width: 120mm; }
 
-.prose a, .note a { color: var(--accent); }
 textarea.field.blurred {
     filter: blur(6px);
     -webkit-filter: blur(6px);
@@ -1321,6 +1320,57 @@ textarea.field.blurred {
     html[data-print="qr"] .footer { display: none !important; }
     html[data-print="qr"] section[hidden] { display: none !important; }
 }
+
+/* ---------- scan tab ---------- */
+/* The hidden attribute loses to any rule that sets display, and half the
+   controls here are flex rows or labels. */
+#pane-scan [hidden] { display: none !important; }
+
+/* The camera. A fixed box, so the page does not jump when the picture
+   arrives, with the picture and the outline layer drawn over each other at the
+   same fit. The outline canvas is the size of the frame that was read, so the
+   corners it is given line up with whatever the camera is showing. */
+.sc-cam {
+    position: relative;
+    margin-top: 14px;
+    width: 100%;
+    max-width: 560px;
+    aspect-ratio: 4 / 3;
+    background: #000;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+html[data-design="chamfer"] .sc-cam { border-radius: 0; }
+.sc-cam video, .sc-cam canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+.sc-cam canvas { pointer-events: none; }
+/* Mirror flips the picture and the outlines together. */
+.sc-cam.mirror video, .sc-cam.mirror canvas { transform: scaleX(-1); }
+.sc-tools { margin-top: 10px; align-items: flex-end; max-width: 560px; }
+.sc-pick { flex: 1 1 160px; min-width: 0; }
+.sc-pick input[type="range"] { width: 100%; accent-color: var(--accent); }
+.sc-log { margin-top: 12px; min-height: 1.5em; }
+
+/* One chip per sheet. Words as well as colour, so a read sheet and a missing
+   one differ for anyone who cannot tell the colours apart. */
+.sc-chips { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.sc-chip {
+    font-family: var(--font);
+    font-size: 12px;
+    padding: 4px 11px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    color: var(--warn);
+    background: var(--sunken);
+}
+.sc-chip.have { color: var(--ok); border-color: var(--ok); }
+html[data-design="contour"] .sc-chip { border-radius: 999px; }
 </style>
 </head>
 <body>
@@ -1345,6 +1395,7 @@ textarea.field.blurred {
 
         <nav class="tabs" role="tablist">
             <button class="tab" id="tab-vault" role="tab" aria-selected="true" aria-controls="pane-vault">Vault</button>
+            <button class="tab" id="tab-scan" role="tab" aria-selected="false" aria-controls="pane-scan">Scan</button>
             <button class="tab" id="tab-about" role="tab" aria-selected="false" aria-controls="pane-about">About</button>
         </nav>
 
@@ -1479,7 +1530,7 @@ textarea.field.blurred {
             <!-- from paper -->
             <div id="paperWrap" hidden style="margin-top:14px">
                 <label class="f">Scanned text from the printed backup. Scan each symbol with a phone and paste the results here, in any order.<textarea class="field" id="inPaper" rows="4" autocomplete="off" spellcheck="false" autocapitalize="off"></textarea></label>
-                <div class="note" style="margin-top:10px">Rather not point a phone scanner app at your backup? <a href="scan.html" target="_blank" rel="noopener noreferrer">scan.html</a> reads the codes in a browser tab instead, by code in that one file, with no network access. It opens in a new tab: scan every sheet there, copy the text it gives you, and paste it here. It needs to sit in the same folder as this page.</div>
+                <div class="note" style="margin-top:10px">Rather not point a phone scanner app at your backup? The <b>Scan</b> tab reads the codes in this page instead, by code in this one file, with no network access, and opens the backup here without copying anything.</div>
                 <div class="row" style="margin-top:10px">
                     <button class="btn btn-primary" id="btnPaperLoad">Read backup</button>
                     <button class="btn btn-ghost" id="btnPaperCancel">Cancel</button>
@@ -1498,7 +1549,7 @@ textarea.field.blurred {
                 </div>
                 <div id="breakWrap" hidden style="margin-top:12px">
                     <label class="f">Recovery key from the printed card. Scan the symbol on the card and paste it, or type the 54 characters - case, spaces and line breaks do not matter.<textarea class="field" id="inKey" rows="3" autocomplete="off" spellcheck="false" autocapitalize="off"></textarea></label>
-                    <div class="note" style="margin-top:10px"><a href="scan.html" target="_blank" rel="noopener noreferrer">scan.html</a> reads the card's square code too, and checks the key as it goes.</div>
+                    <div class="note" style="margin-top:10px">The <b>Scan</b> tab reads the card's square code too, checks the key as it goes, and sends it straight to this box.</div>
                     <div class="row" style="margin-top:10px"><button class="btn" id="btnUnlockKey">Unlock with key</button></div>
                 </div>
             </div>
@@ -1651,6 +1702,84 @@ textarea.field.blurred {
         </div>
     </dialog>
 
+    <section id="pane-scan" role="tabpanel" aria-labelledby="tab-scan" hidden>
+
+        <!-- ================= scan the printed backup ================= -->
+        <div class="panel noprint" id="scPanel">
+            <div class="panel-head">
+                <h2>Scan the printed backup</h2>
+                <span class="sub" id="scSub">nothing read yet</span>
+            </div>
+
+            <div class="prose">Point the camera at each QR code on your printed backup, one sheet at a
+            time and in any order, or add photos of them. The codes are read in this page, by code you
+            can read in this one file. Nothing is sent anywhere, so there is no scanner app to trust.</div>
+
+            <div class="row" style="margin-top:14px">
+                <button class="btn btn-primary" id="scCam" type="button">Start camera</button>
+                <button class="btn" id="scPhotos" type="button">Add photos</button>
+                <button class="btn btn-ghost btn-danger" id="scClear" type="button" hidden>Start over</button>
+            </div>
+            <input type="file" id="scPhotoIn" accept="image/*" multiple hidden>
+
+            <div class="sc-cam" id="scBox" hidden>
+                <video id="scVideo" playsinline muted></video>
+                <canvas id="scOver"></canvas>
+            </div>
+            <div class="row sc-tools" id="scTools" hidden>
+                <label class="f sc-pick" id="scPick" hidden>Camera<select class="field" id="scSel"></select></label>
+                <label class="f sc-pick" id="scZoomPick" hidden>Zoom<input type="range" id="scZoom"></label>
+                <button class="btn btn-sm" id="scMirror" type="button" aria-pressed="false" title="Flip the picture left to right. Codes are read either way.">Mirror: off</button>
+                <button class="btn btn-sm" id="scTorch" type="button" hidden>Light</button>
+                <button class="btn btn-sm" id="scStop" type="button">Stop camera</button>
+            </div>
+
+            <div class="log sc-log" id="scLog" role="status" aria-live="polite"></div>
+        </div>
+
+        <div class="panel noprint" id="scSheets" hidden>
+            <div class="panel-head">
+                <h2>Sheets</h2>
+                <span class="sub" id="scSheetsSub"></span>
+            </div>
+            <ul class="sc-chips" id="scChips"></ul>
+            <div class="log" id="scSheetsLog" style="margin-top:10px"></div>
+        </div>
+
+        <div class="panel noprint" id="scResult" hidden>
+            <div class="panel-head">
+                <h2>Open this backup</h2>
+                <span class="sub" id="scResultSub"></span>
+            </div>
+            <div class="prose">Every sheet is read, and together they are one encrypted backup. Opening it takes
+            you to the Vault tab, where you unlock it with your passphrase or key card. Nothing is copied
+            anywhere on the way.</div>
+            <div class="row" style="margin-top:12px">
+                <button class="btn btn-primary" id="scOpen" type="button">Open this backup</button>
+                <button class="btn" id="scSave" type="button">Save as text file</button>
+            </div>
+            <div class="note" style="margin-top:10px">The saved file is the encrypted backup as text, for
+            <code>recover.py</code> if you have no browser to use: <code>python3 recover.py scanned.txt</code>.</div>
+        </div>
+
+        <div class="panel noprint" id="scKey" hidden>
+            <div class="panel-head">
+                <h2>Recovery key card</h2>
+                <span class="sub">read, check characters match</span>
+            </div>
+            <div class="prose">The key card is read, and its two check characters match. It stays in this tab until
+            you use it or clear it, and it is never shown or copied: Unlock with this key sends it straight to the
+            unlock box on the Vault tab.</div>
+            <div class="row" style="margin-top:12px">
+                <button class="btn btn-primary" id="scKeyUse" type="button">Unlock with this key</button>
+                <button class="btn btn-ghost btn-danger" id="scKeyClear" type="button">Clear key</button>
+            </div>
+            <div class="note" style="margin-top:10px">Open a backup first, from a file, from paper, or with Open this
+            backup above: the key needs something to open.</div>
+        </div>
+
+    </section>
+
     <section id="pane-about" role="tabpanel" aria-labelledby="tab-about" hidden>
         <div class="panel">
             <div class="panel-head"><h2>About</h2></div>
@@ -1658,10 +1787,11 @@ textarea.field.blurred {
                 <p><b>What this is.</b> A private, offline store for account recovery codes - the one-time codes a service gives you for when you lose your authenticator - and anything else you need to survive losing your devices, such as break-glass passwords or a seed phrase. It is not a password manager, and nothing syncs.</p>
                 <p><b>Getting started.</b> Create a vault with a passphrase of six or more unrelated words, then add each account and paste in its codes. Before you close the tab, keep a copy: export the file, print a backup, or both. Then print the key card and store it somewhere apart from everything else.</p>
                 <p><b>Where your data goes.</b> Nowhere. This page cannot connect to the internet and never saves your codes in the browser. Everything lives in this tab, so anything you have not exported or printed is gone when you close it.</p>
-                <p><b>Your backups.</b> The <b>exported file</b> is encrypted and opens in this tool with your passphrase. The <b>printed backup</b> is encrypted QR codes: scan them with a phone camera and paste the text into From paper, or open <b>scan.html</b>, which does the scanning in a browser tab and hands you the joined text. The <b>plaintext sheet</b> is every code in readable text. It needs nothing to use, which also means anyone who finds it has your codes, so it belongs in a safe. Keep each in a different place.</p>
+                <p><b>Your backups.</b> The <b>exported file</b> is encrypted and opens in this tool with your passphrase. The <b>printed backup</b> is encrypted QR codes: scan them with a phone camera and paste the text into From paper, or use the <b>Scan</b> tab, which does the scanning in this page and opens the backup for you. The <b>plaintext sheet</b> is every code in readable text. It needs nothing to use, which also means anyone who finds it has your codes, so it belongs in a safe. Keep each in a different place.</p>
                 <p><b>The key card.</b> The key card opens your vault without the passphrase. That makes it your way back in if you forget the passphrase - and it means the card must be kept apart from your exported file and printed backup, because together they give anyone full access.</p>
                 <p><b>If you forget your passphrase.</b> Open the vault with the key card, choose Change passphrase to set a new one, then export or print again. If a key card is lost or seen by someone else, use Change passphrase with Also replace the key, and print a new card. Neither can reach copies made earlier, so destroy those if they are why you are changing it.</p>
                 <p><b>Backups on several sheets.</b> A large vault prints across more than one sheet, and every sheet is required: losing one loses the whole vault, not part of it. Keep the sheets together. For a copy somewhere else, print a second complete set.</p>
+                <p><b>Scanning.</b> The Scan tab reads the printed QR codes through the camera, or from photos you add, with a decoder written for this tool and sitting in this file. It ticks each sheet off, refuses sheets from two different prints, and when they are all in, opens the backup on the Vault tab. It can read the key card's code too. It needs the camera only while you have it switched on, and nothing it reads is copied, saved or sent: the backup and the key go straight to where you unlock. If your camera gives a mirror image, the codes are still read, and Mirror flips the picture to look right.</p>
                 <p><b>Lock and close.</b> Lock hides the vault but keeps it in this tab, so your passphrase or key card reopens it. It also locks itself after five minutes idle. Close discards it.</p>
                 <p><b>Without this page.</b> If this page is ever unavailable, recover.py from the same repository opens an exported file or a scanned backup using only Python, with nothing to install.</p>
                 <p><b>Good to know.</b> Codes and notes are blurred on screen: hold show to read one, and a field you are typing in stays readable. Print on paper with a local printer - printing to PDF saves your codes to disk, and network printers can keep a copy of the job. Only the three print buttons print anything; pressing Ctrl+P on its own prints only a short notice.</p>
@@ -2032,7 +2162,7 @@ applyMode(store.get("mode") || MODES[0], false);
 })();
 
 /* ---------- tabs ---------- */
-const TABS = [["vault", "pane-vault"], ["about", "pane-about"]];
+const TABS = [["vault", "pane-vault"], ["scan", "pane-scan"], ["about", "pane-about"]];
 function tab(which) {
     TABS.forEach(([id, pane]) => {
         $("#tab-" + id).setAttribute("aria-selected", String(id === which));
@@ -3487,7 +3617,7 @@ async function printBackup() {
             "Open back-stop and choose From paper.",
             "Paste the text in and choose Read backup.",
             "Unlock it with the passphrase or the key card."
-        ]), el("p", "", "No phone scanner you trust? scan.html, beside back-stop, reads these in a browser. No back-stop? See the last page.")));
+        ]), el("p", "", "No phone scanner you trust? back-stop's Scan tab reads these. No back-stop? See the last page.")));
         cols.appendChild(psPanel("ps-panel", "Backup details", psDetails([
             ["Vault", label],
             ["Printed", stamp],
@@ -3558,15 +3688,22 @@ $("#btnPaperCancel").addEventListener("click", () => {
     $("#paperLog").textContent = "";
     lockUi(pending ? "open" : "idle");
 });
-$("#btnPaperLoad").addEventListener("click", () => {
+/* From paper and the Scan tab both end here. Returns a message if the text is
+   not a backup, and nothing if it was read. */
+function loadPaper(text) {
     let file;
-    try { file = envParse(unb64(qrJoin($("#inPaper").value))); }
-    catch (e) { $("#paperLog").textContent = e.message; return notify("Could not read that backup", true); }
-    $("#inPaper").value = "";
+    try { file = envParse(unb64(qrJoin(text))); }
+    catch (e) { return e.message; }
     pending = file;
     lockUi("open", "vault from a printed backup");
+    return null;
+}
+$("#btnPaperLoad").addEventListener("click", () => {
+    const err = loadPaper($("#inPaper").value);
+    if (err) { $("#paperLog").textContent = err; return notify("Could not read that backup", true); }
+    $("#inPaper").value = "";
     notify("Backup read, passphrase or key needed");
-}); 
+});
 $("#btnReset").addEventListener("click", lockVault);
 
 const dlgRk = $("#dlgRekey");
@@ -3737,15 +3874,1207 @@ dlg.addEventListener("cancel", e => { e.preventDefault(); closeEditor(); renderR
 
 toggle($("#tgBlur"), on => { blurOn = on; reblurAll(); });
 
+/* ---------- QR decoder, byte mode, error level M ---------------------------
+   Written for this tool rather than pulled in as a dependency, for the same
+   reason the QR encoder in index.html was: a page you are asked to trust with
+   the way back into your accounts should not run code you cannot read in the
+   one file in front of you.
+
+   It reads what back-stop prints and nothing else: byte mode, error level M,
+   dark on light, any version 1 to 40, and the mirror image of one. It finds the three finder patterns,
+   guesses the version from how far apart they are, fits the grid to them and
+   to every alignment pattern it can find, samples every module, and
+   Reed-Solomon corrects the result. A code is only reported when every block
+   corrects cleanly, so a misread is a miss and never a wrong answer. The
+   text it returns is checked again downstream: it is ciphertext, and a single
+   wrong byte of it fails to decrypt.
+
+   decode(rgba, width, height, { max }) -> [{ text, version, corners, fixed, mirrored }]
+   ------------------------------------------------------------------------ */
+
+const QRD = (() => {
+    "use strict";
+
+    /* ---- GF(256), polynomial 0x11d ---- */
+    const EXP = new Uint8Array(512), LOG = new Uint8Array(256);
+    (() => {
+        let x = 1;
+        for (let i = 0; i < 255; i++) { EXP[i] = x; LOG[x] = i; x <<= 1; if (x & 256) x ^= 0x11d; }
+        for (let i = 255; i < 512; i++) EXP[i] = EXP[i - 255];
+    })();
+    const gmul = (a, b) => (a && b) ? EXP[LOG[a] + LOG[b]] : 0;
+    const gdiv = (a, b) => a ? EXP[(LOG[a] + 255 - LOG[b]) % 255] : 0;
+
+    /* Corrects cw (data then check symbols, nec of them) in place of a copy.
+       Berlekamp-Massey for the locator, Chien search for where, Forney for
+       what. Returns the corrected array and how many symbols were wrong, or
+       null if there are more errors than the code can correct. */
+    function rsCorrect(cw, nec) {
+        const n = cw.length;
+        const syndromes = a => {
+            const S = new Array(nec);
+            let bad = false;
+            for (let j = 0; j < nec; j++) {
+                let s = 0;
+                for (let i = 0; i < n; i++) s = gmul(s, EXP[j]) ^ a[i];
+                S[j] = s;
+                if (s) bad = true;
+            }
+            return { S, bad };
+        };
+        const first = syndromes(cw);
+        if (!first.bad) return { cw, fixed: 0 };
+        const S = first.S;
+
+        let C = [1], B = [1], L = 0, m = 1, b = 1;
+        for (let i = 0; i < nec; i++) {
+            let d = S[i];
+            for (let j = 1; j <= L; j++) if (C[j]) d ^= gmul(C[j], S[i - j]);
+            if (d === 0) { m++; continue; }
+            const T = C.slice();
+            const coef = gdiv(d, b);
+            while (C.length < B.length + m) C.push(0);
+            for (let j = 0; j < B.length; j++) C[j + m] ^= gmul(coef, B[j]);
+            if (2 * L <= i) { L = i + 1 - L; B = T; b = d; m = 1; } else m++;
+        }
+        if (L === 0 || 2 * L > nec) return null;
+
+        const pos = [];
+        for (let p = 0; p < n; p++) {
+            const xinv = (255 - ((n - 1 - p) % 255)) % 255;     // alpha^-(n-1-p)
+            let v = 0;
+            for (let j = 0; j < C.length; j++) if (C[j]) v ^= EXP[(LOG[C[j]] + j * xinv) % 255];
+            if (v === 0) pos.push(p);
+        }
+        if (pos.length !== L) return null;
+
+        const omega = new Array(nec).fill(0);
+        for (let i = 0; i < nec; i++)
+            for (let j = 0; j <= i && j < C.length; j++) if (C[j]) omega[i] ^= gmul(C[j], S[i - j]);
+
+        const out = Array.from(cw);
+        for (const p of pos) {
+            const k = (n - 1 - p) % 255;
+            const xinv = (255 - k) % 255;
+            let om = 0;
+            for (let i = 0; i < nec; i++) if (omega[i]) om ^= EXP[(LOG[omega[i]] + i * xinv) % 255];
+            let dv = 0;
+            for (let j = 1; j < C.length; j += 2) if (C[j]) dv ^= EXP[(LOG[C[j]] + (j - 1) * xinv) % 255];
+            if (dv === 0) return null;
+            out[p] ^= gmul(EXP[k], gdiv(om, dv));
+        }
+        if (syndromes(out).bad) return null;
+        return { cw: out, fixed: pos.length };
+    }
+
+    /* ---- tables: error level M block structure and alignment centres ---- */
+    const ECC = QR_ECC, ALIGN = QR_ALIGN;
+
+    /* The 32 valid format words, and the 34 valid version words. */
+    const bch = (v, shift, gen, genBits) => {
+        let d = v << shift;
+        for (let i = genBits - 1; i >= 0; i--) if (d & (1 << (i + shift))) d ^= gen << i;
+        return d;
+    };
+    const FORMATS = [];
+    for (let data = 0; data < 32; data++) FORMATS.push(((data << 10) | bch(data, 10, 0x537, 5)) ^ 0x5412);
+    const versionWord = v => (v << 12) | bch(v, 12, 0x1f25, 6);
+    const popcount = x => { let n = 0; while (x) { n += x & 1; x >>>= 1; } return n; };
+
+    const MASKS = [
+        (r, c) => (r + c) % 2 === 0,
+        (r, c) => r % 2 === 0,
+        (r, c) => c % 3 === 0,
+        (r, c) => (r + c) % 3 === 0,
+        (r, c) => (Math.floor(r / 2) + Math.floor(c / 3)) % 2 === 0,
+        (r, c) => (r * c) % 2 + (r * c) % 3 === 0,
+        (r, c) => ((r * c) % 2 + (r * c) % 3) % 2 === 0,
+        (r, c) => ((r + c) % 2 + (r * c) % 3) % 2 === 0
+    ];
+
+    /* Which modules are structure rather than data, for a given version. */
+    const fnCache = [];
+    function functionMask(ver) {
+        if (fnCache[ver]) return fnCache[ver];
+        const size = ver * 4 + 17;
+        const fn = new Uint8Array(size * size);
+        const mark = (r, c) => { if (r >= 0 && c >= 0 && r < size && c < size) fn[r * size + c] = 1; };
+        for (const [r0, c0] of [[0, 0], [0, size - 7], [size - 7, 0]])
+            for (let r = -1; r <= 7; r++) for (let c = -1; c <= 7; c++) mark(r0 + r, c0 + c);
+        for (let i = 8; i < size - 8; i++) { mark(6, i); mark(i, 6); }
+        if (ver >= 2) {
+            const pts = ALIGN[ver - 2];
+            pts.forEach(r0 => pts.forEach(c0 => {
+                if ((r0 === 6 && c0 === 6) || (r0 === 6 && c0 === size - 7) || (r0 === size - 7 && c0 === 6)) return;
+                for (let r = -2; r <= 2; r++) for (let c = -2; c <= 2; c++) mark(r0 + r, c0 + c);
+            }));
+        }
+        mark(size - 8, 8);
+        for (let i = 0; i <= 8; i++) { mark(8, i); mark(i, 8); }
+        for (let i = 0; i < 8; i++) { mark(8, size - 1 - i); mark(size - 1 - i, 8); }
+        if (ver >= 7) for (let i = 0; i < 18; i++) {
+            const a = Math.floor(i / 3), b = i % 3;
+            mark(size - 11 + b, a); mark(a, size - 11 + b);
+        }
+        return (fnCache[ver] = fn);
+    }
+
+    /* ---- from modules to text ---- */
+
+    /* bits: Uint8Array(size*size), 1 = dark. Returns { text, fixed } or null. */
+    function decodeModules(bits, ver) {
+        const size = ver * 4 + 17;
+        const at = (r, c) => bits[r * size + c];
+
+        /* Format: two copies of 15 bits. Only error level M is ours, so rank
+           the eight masks by how far both copies are from each, and give the
+           best two a go: a blurred symbol often misreads a few of these. */
+        const fa = [];
+        for (let i = 0; i <= 5; i++) fa.push(at(i, 8));
+        fa.push(at(7, 8), at(8, 8), at(8, 7));
+        for (let i = 9; i < 15; i++) fa.push(at(8, 14 - i));
+        const fb = [];
+        for (let i = 0; i < 8; i++) fb.push(at(8, size - 1 - i));
+        for (let i = 8; i < 15; i++) fb.push(at(size - 15 + i, 8));
+        const word = a => a.reduce((w, b, i) => w | (b << i), 0);
+        const wa = word(fa), wb = word(fb);
+        const ranked = [];
+        for (let m = 0; m < 8; m++) ranked.push([popcount(wa ^ FORMATS[m]) + popcount(wb ^ FORMATS[m]), m]);
+        ranked.sort((a, b) => a[0] - b[0]);
+        if (ranked[0][0] > 10) return null;
+
+        /* Version words, for 7 and up. Only a gate against a wrong guess at
+           the size, so it is loose: the corrected data is the real check. */
+        if (ver >= 7) {
+            let v1 = 0, v2 = 0;
+            for (let i = 0; i < 18; i++) {
+                const a = Math.floor(i / 3), d = i % 3;
+                v1 |= at(size - 11 + d, a) << i;
+                v2 |= at(a, size - 11 + d) << i;
+            }
+            const want = versionWord(ver);
+            if (popcount(v1 ^ want) + popcount(v2 ^ want) > 12) return null;
+        }
+
+        for (const [d, mask] of ranked.slice(0, 2)) {
+            if (d > 10) break;
+            const r = readWithMask(bits, ver, mask);
+            if (r) return r;
+        }
+        return null;
+    }
+
+    function readWithMask(bits, ver, mask) {
+        const size = ver * 4 + 17;
+
+        /* Data modules in placement order, unmasked. */
+        const fn = functionMask(ver);
+        const groups = ECC[ver - 1];
+        let total = 0;
+        groups.forEach(([nb, tot]) => { total += nb * tot; });
+        const bytes = new Uint8Array(total);
+        const maskFn = MASKS[mask];
+        let bit = 0;
+        const limit = total * 8;
+        let up = true, col = size - 1;
+        while (col > 0 && bit < limit) {
+            if (col === 6) col--;
+            for (let i = 0; i < size && bit < limit; i++) {
+                const r = up ? size - 1 - i : i;
+                for (let j = 0; j < 2; j++) {
+                    const cc = col - j;
+                    if (cc < 0 || fn[r * size + cc] || bit >= limit) continue;
+                    let v = bits[r * size + cc];
+                    if (maskFn(r, cc)) v ^= 1;
+                    if (v) bytes[bit >> 3] |= 0x80 >> (bit & 7);
+                    bit++;
+                }
+            }
+            col -= 2;
+            up = !up;
+        }
+        if (bit < limit) return null;
+
+        /* Undo the interleave, then correct each block. */
+        const blocks = [];
+        groups.forEach(([nb, tot, dlen]) => {
+            for (let i = 0; i < nb; i++) blocks.push({ dlen, nec: tot - dlen, d: [], e: [] });
+        });
+        let p = 0;
+        const maxD = Math.max.apply(null, blocks.map(b => b.dlen));
+        for (let i = 0; i < maxD; i++) blocks.forEach(b => { if (i < b.dlen) b.d.push(bytes[p++]); });
+        const maxE = Math.max.apply(null, blocks.map(b => b.nec));
+        for (let i = 0; i < maxE; i++) blocks.forEach(b => { if (i < b.nec) b.e.push(bytes[p++]); });
+
+        const data = [];
+        let fixed = 0, bad = 0;
+        for (const b of blocks) {
+            const r = rsCorrect(b.d.concat(b.e), b.nec);
+            if (!r) { bad++; continue; }
+            fixed += r.fixed;
+            for (let i = 0; i < b.dlen; i++) data.push(r.cw[i]);
+        }
+        if (bad) return null;
+
+        /* Byte-mode segments only. Anything else is not one of ours. */
+        let pos = 0;
+        const nbits = data.length * 8;
+        const take = n => {
+            let v = 0;
+            for (let i = 0; i < n; i++, pos++) v = (v << 1) | ((data[pos >> 3] >> (7 - (pos & 7))) & 1);
+            return v;
+        };
+        let text = "";
+        while (pos + 4 <= nbits) {
+            const mode = take(4);
+            if (mode === 0) break;
+            if (mode !== 4) return null;
+            const cc = ver < 10 ? 8 : 16;
+            if (pos + cc > nbits) return null;
+            const n = take(cc);
+            if (pos + n * 8 > nbits) return null;
+            for (let i = 0; i < n; i++) text += String.fromCharCode(take(8));
+        }
+        return { text, fixed };
+    }
+
+    /* ---- image handling ---- */
+
+    function toGray(rgba, w, h) {
+        const g = new Uint8Array(w * h);
+        for (let i = 0, j = 0; i < g.length; i++, j += 4)
+            g[i] = (rgba[j] * 77 + rgba[j + 1] * 150 + rgba[j + 2] * 29) >> 8;
+        return g;
+    }
+
+    /* Dark where a pixel sits well under the mean of the area around it, so
+       uneven light does not matter. Only used to find the finder patterns:
+       the modules themselves are read from the grey values. */
+    function binarize(gray, w, h) {
+        const win = Math.max(15, Math.round(Math.min(w, h) / 8)) | 1;
+        const half = win >> 1, W1 = w + 1;
+        const ii = new Uint32Array((w + 1) * (h + 1));
+        for (let y = 0; y < h; y++) {
+            let row = 0;
+            for (let x = 0; x < w; x++) {
+                row += gray[y * w + x];
+                ii[(y + 1) * W1 + x + 1] = ii[y * W1 + x + 1] + row;
+            }
+        }
+        const bin = new Uint8Array(w * h);
+        for (let y = 0; y < h; y++) {
+            const y0 = Math.max(0, y - half), y1 = Math.min(h, y + half + 1);
+            for (let x = 0; x < w; x++) {
+                const x0 = Math.max(0, x - half), x1 = Math.min(w, x + half + 1);
+                const sum = ii[y1 * W1 + x1] - ii[y0 * W1 + x1] - ii[y1 * W1 + x0] + ii[y0 * W1 + x0];
+                const area = (x1 - x0) * (y1 - y0);
+                bin[y * w + x] = gray[y * w + x] * area * 100 < sum * 88 ? 1 : 0;
+            }
+        }
+        return bin;
+    }
+
+    function bilinear(gray, w, h, x, y) {
+        if (x < 0) x = 0; else if (x > w - 1) x = w - 1;
+        if (y < 0) y = 0; else if (y > h - 1) y = h - 1;
+        const x0 = x | 0, y0 = y | 0;
+        const x1 = x0 + 1 < w ? x0 + 1 : x0, y1 = y0 + 1 < h ? y0 + 1 : y0;
+        const fx = x - x0, fy = y - y0;
+        const a = gray[y0 * w + x0], b = gray[y0 * w + x1], c = gray[y1 * w + x0], d = gray[y1 * w + x1];
+        return (a * (1 - fx) + b * fx) * (1 - fy) + (c * (1 - fx) + d * fx) * fy;
+    }
+
+    /* ---- finder patterns ---- */
+
+    function ratioOk(a, b, c, d, e, tol) {
+        const t = a + b + c + d + e;
+        if (t < 7 || !a || !b || !c || !d || !e) return false;
+        const ms = t / 7, v = ms * tol;
+        return Math.abs(a - ms) < v && Math.abs(b - ms) < v && Math.abs(c - 3 * ms) < 3 * v &&
+               Math.abs(d - ms) < v && Math.abs(e - ms) < v;
+    }
+
+    /* From a dark pixel, measure the five runs along one axis. Returns the
+       centre of the pattern along that axis and its width, or null. */
+    function crossCheck(bin, w, h, x, y, dx, dy, tol) {
+        const get = i => {
+            const xx = x + dx * i, yy = y + dy * i;
+            return (xx < 0 || yy < 0 || xx >= w || yy >= h) ? -1 : bin[yy * w + xx];
+        };
+        let k = 0;
+        while (get(-k) === 1) k++;
+        if (get(-k) === -1) return null;
+        let wb = 0; while (get(-k - wb) === 0) wb++;
+        if (get(-k - wb) === -1) return null;
+        let ob = 0; while (get(-k - wb - ob) === 1) ob++;
+        let f = 0; while (get(f) === 1) f++;
+        if (get(f) === -1) return null;
+        let wf = 0; while (get(f + wf) === 0) wf++;
+        if (get(f + wf) === -1) return null;
+        let ofw = 0; while (get(f + wf + ofw) === 1) ofw++;
+        const mid = k + f - 1;
+        if (!ratioOk(ob, wb, mid, wf, ofw, tol)) return null;
+        const left = -(k - 1) - wb - ob, right = f - 1 + wf + ofw;
+        return { c: (left + right) / 2, size: (ob + wb + mid + wf + ofw) };
+    }
+
+    function scanFinders(bin, w, h) {
+        const cands = [];
+        const step = Math.max(1, Math.floor(Math.min(w, h) / 480));
+        const TOL = 0.8;
+        for (let y = 0; y < h; y += step) {
+            const row = y * w;
+            const runs = [];   // [start, length, colour]
+            let start = 0, cur = bin[row];
+            const flush = end => {
+                runs.push([start, end - start, cur]);
+                const n = runs.length;
+                if (n >= 5 && runs[n - 1][2] === 1) {
+                    const r = runs.slice(n - 5);
+                    if (ratioOk(r[0][1], r[1][1], r[2][1], r[3][1], r[4][1], TOL)) {
+                        const cx0 = r[0][0] + (r[4][0] + r[4][1] - 1 - r[0][0]) / 2;
+                        check(Math.round(cx0), y, r[0][1] + r[1][1] + r[2][1] + r[3][1] + r[4][1]);
+                    }
+                }
+                if (runs.length > 8) runs.splice(0, runs.length - 8);
+            };
+            const check = (cx, cy, total) => {
+                if (bin[cy * w + cx] !== 1) return;
+                const v = crossCheck(bin, w, h, cx, cy, 0, 1, TOL);
+                if (!v) return;
+                const y2 = Math.round(cy + v.c);
+                if (y2 < 0 || y2 >= h || bin[y2 * w + cx] !== 1) return;
+                const hz = crossCheck(bin, w, h, cx, y2, 1, 0, TOL);
+                if (!hz) return;
+                if (Math.abs(hz.size - v.size) > 0.5 * Math.max(hz.size, v.size)) return;
+                /* A real finder shows 1:1:3:1:1 along every line through its
+                   centre, so the two diagonals have to agree as well. Dense
+                   data throws up plenty of look-alikes along one axis. */
+                const fx = cx + hz.c, fy = cy + v.c, ms = (hz.size + v.size) / 14;
+                const ix = Math.round(fx), iy = Math.round(fy);
+                if (ix < 0 || iy < 0 || ix >= w || iy >= h || bin[iy * w + ix] !== 1) return;
+                if (!crossCheck(bin, w, h, ix, iy, 1, 1, 1.0) || !crossCheck(bin, w, h, ix, iy, 1, -1, 1.0)) return;
+                for (const c of cands) {
+                    if (Math.abs(c.x - fx) < ms * 1.5 && Math.abs(c.y - fy) < ms * 1.5) {
+                        c.x = (c.x * c.n + fx) / (c.n + 1);
+                        c.y = (c.y * c.n + fy) / (c.n + 1);
+                        c.ms = (c.ms * c.n + ms) / (c.n + 1);
+                        c.n++;
+                        return;
+                    }
+                }
+                cands.push({ x: fx, y: fy, ms, n: 1 });
+            };
+            for (let x = 1; x < w; x++) {
+                const v = bin[row + x];
+                if (v !== cur) { flush(x); start = x; cur = v; }
+            }
+            flush(w);
+        }
+        return cands;
+    }
+
+    /* Pearson correlation between grey samples and a +1 dark / -1 light
+       template, negated so a good match is near +1. Amplitude counts: a ring
+       that is merely on the right side of the mean is not a ring. */
+    function match(g, t) {
+        const n = g.length;
+        let mg = 0, mt = 0;
+        for (let i = 0; i < n; i++) { mg += g[i]; mt += t[i]; }
+        mg /= n; mt /= n;
+        let num = 0, dg = 0, dt = 0;
+        for (let i = 0; i < n; i++) { const a = g[i] - mg, b = t[i] - mt; num += a * b; dg += a * a; dt += b * b; }
+        return dg > 25 && dt > 0 ? -num / Math.sqrt(dg * dt) : -1;
+    }
+
+    /* How much a candidate looks like a finder pattern once the symbol's own
+       axes are known: black ring, white ring, black 3 by 3 core. */
+    function finderScore(gray, w, h, c, u, v) {
+        const g = [], sg = [];
+        for (let dv = -3; dv <= 3; dv++) for (let du = -3; du <= 3; du++) {
+            const ring = Math.max(Math.abs(du), Math.abs(dv));
+            g.push(bilinear(gray, w, h, c.x + du * u[0] + dv * v[0], c.y + du * u[1] + dv * v[1]));
+            sg.push(ring === 2 ? -1 : 1);
+        }
+        return match(g, sg);
+    }
+
+    /* Three candidates that look like the corners of one symbol, best first. */
+    function bestTriples(cands) {
+        let pool = cands.filter(c => c.n >= 2);
+        if (pool.length < 3) pool = cands.slice();
+        pool.sort((a, b) => b.n - a.n);
+        pool = pool.slice(0, 24);
+        const out = [];
+        for (let i = 0; i < pool.length; i++) for (let j = i + 1; j < pool.length; j++) for (let k = j + 1; k < pool.length; k++) {
+            const t = [pool[i], pool[j], pool[k]];
+            const ms = t.map(c => c.ms);
+            const msRatio = Math.max.apply(null, ms) / Math.min.apply(null, ms);
+            if (msRatio > 1.8) continue;
+            const d = [Math.hypot(t[0].x - t[1].x, t[0].y - t[1].y),
+                       Math.hypot(t[0].x - t[2].x, t[0].y - t[2].y),
+                       Math.hypot(t[1].x - t[2].x, t[1].y - t[2].y)].sort((a, b) => a - b);
+            const avgMs = (ms[0] + ms[1] + ms[2]) / 3;
+            if (d[0] < 8 * avgMs) continue;
+            const legs = d[1] / d[0];
+            const hyp = Math.abs(d[2] / (Math.SQRT2 * (d[0] + d[1]) / 2) - 1);
+            if (legs > 1.5 || hyp > 0.3) continue;
+            out.push({ t, score: (legs - 1) + hyp + (msRatio - 1) * 0.5 });
+        }
+        out.sort((a, b) => a.score - b.score);
+        return out.slice(0, 8).map(o => o.t);
+    }
+
+    /* Which of the three is the top-left, top-right and bottom-left. */
+    function orient(t) {
+        const d = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+        const d01 = d(t[0], t[1]), d02 = d(t[0], t[2]), d12 = d(t[1], t[2]);
+        let tl, a, b;
+        if (d12 >= d01 && d12 >= d02) { tl = t[0]; a = t[1]; b = t[2]; }
+        else if (d02 >= d01 && d02 >= d12) { tl = t[1]; a = t[0]; b = t[2]; }
+        else { tl = t[2]; a = t[0]; b = t[1]; }
+        const cross = (a.x - tl.x) * (b.y - tl.y) - (a.y - tl.y) * (b.x - tl.x);
+        return cross > 0 ? { tl, tr: a, bl: b } : { tl, tr: b, bl: a };
+    }
+
+    /* ---- geometry ---- */
+
+    /* A projective map from module coordinates to pixels, fitted by least
+       squares to any number of point pairs. Both sides are normalised first,
+       so the eight by eight system stays well conditioned at version 40. */
+    function fitMapper(pairs, dim, X0, Y0, S) {
+        const N = Array.from({ length: 8 }, () => new Float64Array(9));
+        const add = (row, rhs) => {
+            for (let i = 0; i < 8; i++) {
+                for (let j = 0; j < 8; j++) N[i][j] += row[i] * row[j];
+                N[i][8] += row[i] * rhs;
+            }
+        };
+        for (const [u0, v0, x0, y0] of pairs) {
+            const u = (u0 - dim / 2) / dim, v = (v0 - dim / 2) / dim, x = (x0 - X0) / S, y = (y0 - Y0) / S;
+            add([u, v, 1, 0, 0, 0, -u * x, -v * x], x);
+            add([0, 0, 0, u, v, 1, -u * y, -v * y], y);
+        }
+        for (let c = 0; c < 8; c++) {
+            let p = c;
+            for (let r = c + 1; r < 8; r++) if (Math.abs(N[r][c]) > Math.abs(N[p][c])) p = r;
+            if (Math.abs(N[p][c]) < 1e-12) return null;
+            const t = N[c]; N[c] = N[p]; N[p] = t;
+            for (let r = 0; r < 8; r++) {
+                if (r === c) continue;
+                const f = N[r][c] / N[c][c];
+                if (f) for (let k = c; k < 9; k++) N[r][k] -= f * N[c][k];
+            }
+        }
+        return { h: N.map((row, i) => row[8] / row[i]), dim, X0, Y0, S };
+    }
+    const project = (M, u0, v0) => {
+        const u = (u0 - M.dim / 2) / M.dim, v = (v0 - M.dim / 2) / M.dim, h = M.h;
+        const z = h[6] * u + h[7] * v + 1;
+        return [((h[0] * u + h[1] * v + h[2]) / z) * M.S + M.X0, ((h[3] * u + h[4] * v + h[5]) / z) * M.S + M.Y0];
+    };
+
+    /* The affine map the three finder centres give, as a function. */
+    function affineFor(o, dim) {
+        const s = dim - 7;
+        const ax = (o.tr.x - o.tl.x) / s, ay = (o.tr.y - o.tl.y) / s;
+        const bx = (o.bl.x - o.tl.x) / s, by = (o.bl.y - o.tl.y) / s;
+        return (u, v) => [o.tl.x + (u - 3.5) * ax + (v - 3.5) * bx, o.tl.y + (u - 3.5) * ay + (v - 3.5) * by,
+                          ax, ay, bx, by];
+    }
+
+    /* Lay the 5 by 5 alignment template over a search area around a predicted
+       centre and keep the best match. ax..by are the pixel steps of one
+       module along each axis. Returns [x, y, score] or null. */
+    function findAlignment(gray, w, h, px, py, ax, ay, bx, by, rad) {
+        const T = [], tpl = [];
+        for (let dv = -2; dv <= 2; dv++) for (let du = -2; du <= 2; du++) {
+            T.push([du, dv]);
+            tpl.push(Math.max(Math.abs(du), Math.abs(dv)) === 1 ? -1 : 1);
+        }
+        const g = new Array(25);
+        const score = (cx, cy) => {
+            for (let i = 0; i < 25; i++) {
+                const du = T[i][0], dv = T[i][1];
+                g[i] = bilinear(gray, w, h, cx + du * ax + dv * bx, cy + du * ay + dv * by);
+            }
+            return match(g, tpl);
+        };
+        let best = null;
+        for (let dv = -rad; dv <= rad + 1e-9; dv += 0.5) for (let du = -rad; du <= rad + 1e-9; du += 0.5) {
+            const cx = px + du * ax + dv * bx, cy = py + du * ay + dv * by;
+            const s = score(cx, cy) - 0.002 * Math.hypot(du, dv);
+            if (!best || s > best.s) best = { s, cx, cy };
+        }
+        if (!best) return null;
+        let { cx, cy, s } = best;
+        for (const st of [0.25, 0.1, 0.05]) {
+            let moved = true;
+            while (moved) {
+                moved = false;
+                for (const [a, b] of [[st, 0], [-st, 0], [0, st], [0, -st]]) {
+                    const nx = cx + a * ax + b * bx, ny = cy + a * ay + b * by;
+                    const ns = score(nx, ny);
+                    if (ns > s) { s = ns; cx = nx; cy = ny; moved = true; }
+                }
+            }
+        }
+        return [cx, cy, s];
+    }
+
+    /* The grid, fitted to the three finders and then to every alignment
+       pattern that can be found, nearest the known points first. Each one
+       found corrects the prediction for the next, which is what keeps a
+       tilted or slightly curved sheet in register across 100 modules. */
+    function buildMapper(gray, w, h, o, ver) {
+        const dim = ver * 4 + 17;
+        const aff = affineFor(o, dim);
+        const [X0, Y0] = aff(dim / 2, dim / 2);
+        const S = (Math.hypot(o.tr.x - o.tl.x, o.tr.y - o.tl.y) + Math.hypot(o.bl.x - o.tl.x, o.bl.y - o.tl.y)) / 2 * dim / (dim - 7);
+        const real = [[3.5, 3.5, o.tl.x, o.tl.y], [dim - 3.5, 3.5, o.tr.x, o.tr.y], [3.5, dim - 3.5, o.bl.x, o.bl.y]];
+        const guess = aff(dim - 3.5, dim - 3.5);
+        let M = fitMapper(real.concat([[dim - 3.5, dim - 3.5, guess[0], guess[1]]]), dim, X0, Y0, S);
+        if (!M || ver < 2) return M;
+
+        const pts = ALIGN[ver - 2];
+        const todo = [];
+        pts.forEach(r0 => pts.forEach(c0 => {
+            if ((r0 === 6 && c0 === 6) || (r0 === 6 && c0 === dim - 7) || (r0 === dim - 7 && c0 === 6)) return;
+            todo.push([c0 + 0.5, r0 + 0.5]);
+        }));
+        const known = real.map(p => [p[0], p[1]]);
+        while (todo.length) {
+            let bi = 0, bd = 1e9;
+            todo.forEach((t, i) => {
+                for (const k of known) { const d = Math.hypot(t[0] - k[0], t[1] - k[1]); if (d < bd) { bd = d; bi = i; } }
+            });
+            const [u, v] = todo.splice(bi, 1)[0];
+            const [px, py] = project(M, u, v);
+            const [x1, y1] = project(M, u + 1, v), [x2, y2] = project(M, u, v + 1);
+            let hit = null;
+            /* Wider only if it has to be, since a wide window finds more
+               look-alikes in the data. The only pattern in a small version has
+               nothing nearer to be corrected by, so it starts wider. */
+            for (const rad of (bd > 30 ? [3, 6, 12] : [2.5, 5])) {
+                const r = findAlignment(gray, w, h, px, py, x1 - px, y1 - py, x2 - px, y2 - py, rad);
+                if (r && r[2] >= 0.7) { hit = r; break; }
+            }
+            if (!hit) continue;
+            real.push([u, v, hit[0], hit[1]]);
+            known.push([u, v]);
+            /* Until a real fourth point exists, the affine guess stands in. */
+            const fit = fitMapper(real.length >= 4 ? real : real.concat([[dim - 3.5, dim - 3.5, guess[0], guess[1]]]), dim, X0, Y0, S);
+            if (fit) M = fit;
+        }
+        return M;
+    }
+
+    /* Read every module as a grey value, a few taps per module. */
+    function sampleGrid(gray, w, h, M, dim) {
+        const vals = new Float32Array(dim * dim);
+        const taps = [[0, 0], [-0.2, -0.2], [0.2, -0.2], [-0.2, 0.2], [0.2, 0.2]];
+        for (let r = 0; r < dim; r++) for (let c = 0; c < dim; c++) {
+            let s = 0;
+            for (const [a, b] of taps) {
+                const [x, y] = project(M, c + 0.5 + a, r + 0.5 + b);
+                s += bilinear(gray, w, h, x, y);
+            }
+            vals[r * dim + c] = s / 5;
+        }
+        return vals;
+    }
+
+    /* Ways to call a module dark: against the mean of the modules around it,
+       which follows uneven light; against one level for the whole symbol,
+       taken from the middle of the data; and against the level the finder
+       patterns themselves show, whose dark and light are known exactly. */
+    function thresholds(vals, dim) {
+        const local = new Uint8Array(dim * dim), global = new Uint8Array(dim * dim), cal = new Uint8Array(dim * dim);
+        const D1 = dim + 1, ii = new Float64Array(D1 * D1);
+        for (let r = 0; r < dim; r++) {
+            let row = 0;
+            for (let c = 0; c < dim; c++) { row += vals[r * dim + c]; ii[(r + 1) * D1 + c + 1] = ii[r * D1 + c + 1] + row; }
+        }
+        const R = 5;
+        for (let r = 0; r < dim; r++) for (let c = 0; c < dim; c++) {
+            const r0 = Math.max(0, r - R), r1 = Math.min(dim, r + R + 1), c0 = Math.max(0, c - R), c1 = Math.min(dim, c + R + 1);
+            const sum = ii[r1 * D1 + c1] - ii[r0 * D1 + c1] - ii[r1 * D1 + c0] + ii[r0 * D1 + c0];
+            local[r * dim + c] = vals[r * dim + c] < sum / ((r1 - r0) * (c1 - c0)) ? 1 : 0;
+        }
+        const sorted = Array.from(vals).sort((a, b) => a - b);
+        const lo = sorted[Math.floor(sorted.length * 0.08)], hi = sorted[Math.floor(sorted.length * 0.92)];
+        const mid = (lo + hi) / 2;
+        for (let i = 0; i < vals.length; i++) global[i] = vals[i] < mid ? 1 : 0;
+
+        /* Finder rings and cores are dark, the separator ring and the ring
+           inside the outer one are light. */
+        let ds = 0, dn = 0, ls = 0, ln = 0;
+        for (const [r0, c0] of [[0, 0], [0, dim - 7], [dim - 7, 0]]) {
+            for (let r = 0; r < 7; r++) for (let c = 0; c < 7; c++) {
+                const ring = Math.max(Math.abs(r - 3), Math.abs(c - 3));
+                const v = vals[(r0 + r) * dim + c0 + c];
+                if (ring === 2) { ls += v; ln++; } else { ds += v; dn++; }
+            }
+        }
+        const calT = (ds / dn + ls / ln) / 2;
+        for (let i = 0; i < vals.length; i++) cal[i] = vals[i] < calT ? 1 : 0;
+        return [local, cal, global];
+    }
+
+    /* A webcam or a front camera often hands over a mirror image, and a mirror
+       image of a QR code is not one. Orient() always builds a right-handed grid
+       from the three finders, and for a mirror image that grid comes out
+       transposed: rows where the columns should be. So when the modules do not
+       read, they are read again transposed, which costs nothing. */
+    function transposed(bits, dim) {
+        const t = new Uint8Array(dim * dim);
+        for (let r = 0; r < dim; r++) for (let c = 0; c < dim; c++) t[c * dim + r] = bits[r * dim + c];
+        return t;
+    }
+
+    /* One try: a triple of finders, a guess at the version. */
+    function attempt(gray, w, h, o, ver) {
+        const dim = ver * 4 + 17;
+        const M = buildMapper(gray, w, h, o, ver);
+        if (!M) return null;
+        const vals = sampleGrid(gray, w, h, M, dim);
+        for (const bits of thresholds(vals, dim)) {
+            let r = decodeModules(bits, ver), mirrored = false;
+            if (!r) { r = decodeModules(transposed(bits, dim), ver); mirrored = !!r; }
+            if (r) {
+                const corners = [[0, 0], [dim, 0], [dim, dim], [0, dim]].map(([u, v]) => {
+                    const [x, y] = project(M, u, v);
+                    return { x, y };
+                });
+                return { text: r.text, version: ver, fixed: r.fixed, corners, mirrored };
+            }
+        }
+        return null;
+    }
+
+    /* Everything findable in one image. */
+    function decode(rgba, w, h, opts) {
+        const max = (opts && opts.max) || 4;
+        const gray = toGray(rgba, w, h);
+        const found = [];
+        for (let pass = 0; pass < max; pass++) {
+            const bin = binarize(gray, w, h);
+            const cands = scanFinders(bin, w, h);
+            if (cands.length < 3) break;
+            let hit = null;
+            const ranked = bestTriples(cands).map(tri => {
+                const o = orient(tri);
+                const u = [o.tr.x - o.tl.x, o.tr.y - o.tl.y], v = [o.bl.x - o.tl.x, o.bl.y - o.tl.y];
+                const lu = Math.hypot(u[0], u[1]), lv = Math.hypot(v[0], v[1]);
+                let s = 0, worst = 9;
+                tri.forEach(c => {
+                    const a = finderScore(gray, w, h, c, [u[0] / lu * c.ms, u[1] / lu * c.ms], [v[0] / lv * c.ms, v[1] / lv * c.ms]);
+                    s += a; worst = Math.min(worst, a);
+                });
+                return { tri, s, worst };
+            }).filter(r => r.worst > 0.45).sort((a, b) => b.s - a.s).slice(0, 4);
+            for (const { tri } of ranked) {
+                const o = orient(tri);
+                /* Edge length over the module size at its two ends, which keeps
+                   the estimate honest when the sheet is tilted and one end is
+                   nearer the camera than the other. Blur widens the finders a
+                   little, so the module size reads high and the count low:
+                   look a little further up than down, and try the nearest
+                   sizes first. */
+                const edge = (a, b) => Math.hypot(a.x - b.x, a.y - b.y) / ((a.ms + b.ms) / 2) + 7;
+                const est = (edge(o.tl, o.tr) + edge(o.tl, o.bl)) / 2;
+                const vers = [];
+                for (let v = 1; v <= 40; v++) {
+                    const dim = v * 4 + 17;
+                    if (dim >= est * 0.94 - 3 && dim <= est * 1.12 + 3) vers.push([v, Math.abs(dim - est * 1.035)]);
+                }
+                vers.sort((a, b) => a[1] - b[1]);
+                for (const [v] of vers.slice(0, 6)) {
+                    hit = attempt(gray, w, h, o, v);
+                    if (hit) break;
+                }
+                if (hit) break;
+            }
+            if (!hit) break;
+            found.push(hit);
+            /* Paint over what was read so the next pass finds the next one. */
+            let x0 = w, y0 = h, x1 = 0, y1 = 0;
+            hit.corners.forEach(c => { x0 = Math.min(x0, c.x); y0 = Math.min(y0, c.y); x1 = Math.max(x1, c.x); y1 = Math.max(y1, c.y); });
+            const pad = (x1 - x0) / (hit.version * 4 + 17) * 3;
+            x0 = Math.max(0, Math.floor(x0 - pad)); y0 = Math.max(0, Math.floor(y0 - pad));
+            x1 = Math.min(w, Math.ceil(x1 + pad)); y1 = Math.min(h, Math.ceil(y1 + pad));
+            for (let y = y0; y < y1; y++) gray.fill(255, y * w + x0, y * w + x1);
+        }
+        return found;
+    }
+
+    return { decode };
+})();
+
+
+/* ---------- the scanner ---------------------------------------------------
+   The Scan tab. Reads the QR codes on a printed backup, from the camera or
+   from photos, collects the sheets, and hands the joined backup to the same
+   place From paper does, or the key card's key to the same place the typed
+   key goes. Nothing is copied: the clipboard is never involved, so neither the
+   backup nor the key can be left behind in clipboard history.
+
+   What it holds while it works is the encrypted backup, which is useless on
+   its own, and the key card's key if that has been read. All of it lives in
+   these variables, is never stored, and is cleared on Start over, after five
+   minutes idle, and once it has been used.
+   ------------------------------------------------------------------------ */
+
+const SCAN = (() => {
+    const MAX_SHEETS = 24;               // the most back-stop ever splits a backup into
+    const SCAN_IDLE_MS = 5 * 60 * 1000;
+    const PHOTO_MAX = 3000;              // longest side, in pixels, a photo is read at
+    const VIDEO_MAX = 1920;
+    const ENV_MIN = 3 + 2 + 16 + 12 + 48 + 12 + 1;   // the fixed part of the envelope
+    const CHUNK = /^BS1:(\d{1,2})\/(\d{1,2}):([A-Za-z0-9+\/=]+)$/;
+
+    let sheets = new Map();              // sheet number -> its piece of the base64
+    let total = 0;                       // how many sheets there are, from the first one read
+    let keyText = null;                  // the recovery key, once its card has been read
+    let stream = null, track = null, loopT = null, idleT = null, lastNote = "", announced = false;
+    let mirrorAuto = false, torchOn = false, tickBusy = false;
+
+    /* ---------- what a code says ---------- */
+
+    /* A key card's code is 54 characters of the key and its two check
+       characters. parseKey, the same function a typed key goes through, does
+       the checking, so a misread is caught now and not at the unlock. */
+    async function keyFrom(text) {
+        const norm = String(text).trim().replace(/^BSK1:/i, "").toUpperCase().replace(/[^0-9A-Z]/g, "");
+        if (norm.length !== 54) return null;
+        try { await parseKey(norm); return norm; }
+        catch (e) { return /typo/.test(e.message) ? "bad" : null; }
+    }
+
+    function takeSheet(i, n, piece) {
+        if (n < 1 || n > MAX_SHEETS || i < 1 || i > n)
+            return { kind: "bad", note: "That code says it is sheet " + i + " of " + n + ", which cannot be right." };
+        if (total && n !== total)
+            return { kind: "bad", note: "That code is from a backup of " + n + " sheets, but the sheets already read are from one of " +
+                total + ". They are from different prints. Press Start over to read a different backup." };
+        if (sheets.has(i))
+            return sheets.get(i) === piece
+                ? { kind: "dup", note: "Sheet " + i + " is already read." }
+                : { kind: "bad", note: "Sheet " + i + " is already read and this one is different, so they come from two " +
+                    "different prints. Press Start over to read a different backup." };
+        total = n;
+        sheets.set(i, piece);
+        return { kind: "sheet", note: "Read sheet " + i + " of " + n + "." };
+    }
+
+    async function take(text) {
+        const t = String(text).trim();
+        const m = CHUNK.exec(t);
+        if (m) return takeSheet(+m[1], +m[2], m[3]);
+        const k = await keyFrom(t);
+        if (k === "bad")
+            return { kind: "bad", note: "That looks like a recovery key, but its check characters do not match. Scan it again." };
+        if (k) {
+            const fresh = keyText !== k;
+            keyText = k;
+            return fresh ? { kind: "key", note: "Read the recovery key card." } : { kind: "dup", note: "The key card is already read." };
+        }
+        return { kind: "other", note: "That code is not from a back-stop backup or key card." };
+    }
+
+    /* The sheets, in order, as the lines From paper takes. */
+    function joinedText() {
+        const out = [];
+        for (let i = 1; i <= total; i++) out.push("BS1:" + i + "/" + total + ":" + sheets.get(i));
+        return out.join("\n");
+    }
+
+    /* Does the joined text look like a back-stop envelope? Says how many bytes
+       it is, which is the figure each sheet prints as its size. */
+    function checkJoined() {
+        let bytes;
+        try {
+            let all = "";
+            for (let i = 1; i <= total; i++) all += sheets.get(i);
+            const bin = atob(all);
+            bytes = bin.length;
+            if (bytes <= ENV_MIN) return { ok: false, why: "These sheets join into something too short to be a back-stop backup." };
+            if (bin.charCodeAt(0) !== 66 || bin.charCodeAt(1) !== 83)
+                return { ok: false, why: "These sheets join into something that does not start like a back-stop backup." };
+            if (bin.charCodeAt(2) !== ENV_VER)
+                return { ok: false, why: "This backup was written by a newer version of back-stop than this page understands." };
+        } catch (e) {
+            return { ok: false, why: "These sheets do not join into a valid backup. A code may have been misread: Start over and scan again." };
+        }
+        return { ok: true, bytes };
+    }
+
+    /* ---------- the page ---------- */
+
+    function say(note, kind) {
+        const log = $("#scLog");
+        log.textContent = "";
+        if (note) log.appendChild(el("span", kind || "", note));
+    }
+
+    function draw() {
+        const have = sheets.size;
+        const complete = total > 0 && have === total;
+        $("#scSub").textContent = have ? have + " of " + total + " sheets read" : (keyText ? "key card read" : "nothing read yet");
+        $("#scClear").hidden = !(have || keyText);
+
+        $("#scSheets").hidden = !have;
+        const chips = $("#scChips");
+        chips.textContent = "";
+        for (let i = 1; i <= total; i++)
+            chips.appendChild(el("li", "sc-chip" + (sheets.has(i) ? " have" : ""), "sheet " + i + (sheets.has(i) ? " - read" : " - missing")));
+        $("#scSheetsSub").textContent = have ? have + " of " + total : "";
+        const log = $("#scSheetsLog");
+        log.textContent = "";
+
+        let result = false;
+        if (complete) {
+            const v = checkJoined();
+            if (v.ok) {
+                result = true;
+                $("#scResultSub").textContent = v.bytes + " bytes";
+                log.appendChild(el("span", "ok", "Every sheet is read. Together they are " + v.bytes +
+                    " bytes, which is the size printed on each sheet."));
+            } else {
+                log.appendChild(el("span", "bad", v.why));
+            }
+        } else if (have) {
+            const missing = [];
+            for (let i = 1; i <= total; i++) if (!sheets.has(i)) missing.push(i);
+            log.appendChild(el("span", "", "Still needed: sheet" + (missing.length === 1 ? " " : "s ") + missing.join(", ") +
+                ". Every sheet is required: a partial set opens nothing."));
+        }
+        $("#scResult").hidden = !result;
+        $("#scKey").hidden = !keyText;
+
+        /* Once, at the moment the last sheet arrives. After that the camera can be
+           turned on again, to read the key card for instance, and stays on. */
+        if (!(complete && result)) announced = false;
+        else if (!announced) {
+            announced = true;
+            if (stream) { stopCamera(); notify("Every sheet is read. The camera is off."); }
+        }
+    }
+
+    function clearAll(quiet) {
+        sheets = new Map(); total = 0; keyText = null; lastNote = "";
+        stopCamera();
+        say("");
+        draw();
+        if (!quiet) notify("Cleared");
+    }
+
+    /* Takes what the reader found. Only a change of news is shown, so a sheet held
+       steady in front of the camera does not repaint the same line ten times a
+       second. */
+    async function handleFound(texts) {
+        let news = null;
+        for (const t of texts) {
+            const r = await take(t);
+            if (r.kind === "sheet" || r.kind === "key") { news = r; break; }
+            if (!news || (news.kind === "dup" && r.kind !== "dup")) news = r;
+        }
+        if (!news) return null;
+        if (news.note !== lastNote) {
+            lastNote = news.note;
+            say(news.note, news.kind === "bad" ? "bad" : (news.kind === "other" ? "warn" : (news.kind === "dup" ? "" : "ok")));
+            if (news.kind === "sheet" || news.kind === "key") {
+                if (navigator.vibrate) { try { navigator.vibrate(60); } catch (e) {} }
+                notify(news.note);
+            }
+        }
+        draw();
+        bumpScanIdle();
+        return news;
+    }
+
+    /* ---------- camera ---------- */
+
+    function outline(corners, kind, w, h) {
+        const cv = $("#scOver");
+        if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+        const g = cv.getContext("2d");
+        g.clearRect(0, 0, w, h);
+        if (!corners) return;
+        const css = getComputedStyle(document.documentElement);
+        const col = (kind === "bad" ? css.getPropertyValue("--bad") : kind === "dup" ? css.getPropertyValue("--warn")
+                    : css.getPropertyValue("--ok")).trim() || "#4c4";
+        g.lineWidth = Math.max(3, w / 220);
+        g.strokeStyle = col;
+        corners.forEach(poly => {
+            g.beginPath();
+            poly.forEach((p, i) => (i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y)));
+            g.closePath();
+            g.stroke();
+        });
+    }
+
+    /* Mirror flips what is shown, not what is read: a mirror image of a code is
+       read as it is. It is here because a camera that hands over a mirror image
+       shows a sheet's writing backwards, which is awkward to aim. */
+    function setMirror(on) {
+        $("#scBox").classList.toggle("mirror", on);
+        const b = $("#scMirror");
+        b.setAttribute("aria-pressed", String(on));
+        b.textContent = "Mirror: " + (on ? "on" : "off");
+    }
+
+    function stopCamera() {
+        clearTimeout(loopT);
+        loopT = null;
+        if (stream) stream.getTracks().forEach(t => t.stop());
+        stream = null; track = null;
+        $("#scVideo").srcObject = null;
+        $("#scBox").hidden = true;
+        $("#scTools").hidden = true;
+        $("#scCam").textContent = "Start camera";
+        const cv = $("#scOver");
+        cv.getContext("2d").clearRect(0, 0, cv.width, cv.height);
+    }
+
+    async function tick() {
+        loopT = setTimeout(tick, 120);
+        const v = $("#scVideo");
+        if (tickBusy || !stream || document.hidden || v.readyState < 2 || !v.videoWidth) return;
+        tickBusy = true;
+        try {
+            const sc = Math.min(1, VIDEO_MAX / Math.max(v.videoWidth, v.videoHeight));
+            const w = Math.round(v.videoWidth * sc), h = Math.round(v.videoHeight * sc);
+            if (!tick.cv || tick.cv.width !== w || tick.cv.height !== h) {
+                tick.cv = new OffscreenCanvas(w, h);
+                tick.cx = tick.cv.getContext("2d", { willReadFrequently: true });
+            }
+            tick.cx.drawImage(v, 0, 0, w, h);
+            const id = tick.cx.getImageData(0, 0, w, h);
+            const found = QRD.decode(id.data, w, h, { max: 2 });
+            if (found.length) {
+                /* A mirror image that reads is a camera that mirrors. Flip the
+                   preview once so the sheet looks right; Mirror undoes it. */
+                if (!mirrorAuto && found.some(f => f.mirrored)) {
+                    mirrorAuto = true;
+                    setMirror(true);
+                    notify("This camera gives a mirror image, so the picture is flipped. Press Mirror to undo that.");
+                }
+                const news = await handleFound(found.map(f => f.text));
+                outline(found.map(f => f.corners), news ? news.kind : "other", w, h);
+                tick.shown = performance.now();
+            } else if (performance.now() - (tick.shown || 0) > 400) {
+                outline(null, "", w, h);
+            }
+        } catch (e) {
+            say("The camera frame could not be read: " + e.message, "bad");
+        }
+        tickBusy = false;
+    }
+
+    async function startCamera(deviceId) {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            say("This browser cannot open a camera for this page. Add photos instead.", "bad");
+            return;
+        }
+        stopCamera();
+        say("Asking for the camera...");
+        const size = { width: { ideal: 1920 }, height: { ideal: 1080 } };
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: deviceId ? Object.assign({ deviceId: { exact: deviceId } }, size)
+                                : Object.assign({ facingMode: { ideal: "environment" } }, size),
+                audio: false
+            });
+        } catch (e) {
+            const why = e && e.name;
+            say(why === "NotAllowedError" || why === "SecurityError"
+                    ? "The camera was blocked. Allow it for this page in the browser's site settings, or add photos instead."
+                : why === "NotFoundError" || why === "OverconstrainedError"
+                    ? "No camera was found. Add photos instead."
+                : why === "NotReadableError"
+                    ? "The camera is in use by another program. Close that and try again, or add photos instead."
+                : "The camera could not be opened (" + (why || "unknown error") + "). Add photos instead.", "bad");
+            return;
+        }
+        track = stream.getVideoTracks()[0];
+        const v = $("#scVideo");
+        v.srcObject = stream;
+        try { await v.play(); } catch (e) {}
+        mirrorAuto = false;
+        $("#scBox").hidden = false;
+        $("#scTools").hidden = false;
+        $("#scCam").textContent = "Restart camera";
+        say("Looking for codes. Hold a sheet so its square fills most of the view.");
+        await cameraControls();
+        clearTimeout(loopT);
+        loopT = setTimeout(tick, 120);
+        bumpScanIdle();
+    }
+
+    /* Zoom, light and a choice of camera, only where the browser offers them. */
+    async function cameraControls() {
+        const caps = track && track.getCapabilities ? track.getCapabilities() : {};
+        const settings = track && track.getSettings ? track.getSettings() : {};
+        const zr = $("#scZoom");
+        $("#scZoomPick").hidden = !caps.zoom;
+        if (caps.zoom) {
+            zr.min = caps.zoom.min; zr.max = caps.zoom.max; zr.step = caps.zoom.step || 0.1;
+            zr.value = settings.zoom || caps.zoom.min;
+        }
+        $("#scTorch").hidden = !caps.torch;
+        try {
+            const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "videoinput");
+            const sel = $("#scSel");
+            sel.textContent = "";
+            devs.forEach((d, i) => {
+                const o = el("option", "", d.label || "Camera " + (i + 1));
+                o.value = d.deviceId;
+                if (settings.deviceId && d.deviceId === settings.deviceId) o.selected = true;
+                sel.appendChild(o);
+            });
+            $("#scPick").hidden = devs.length < 2;
+        } catch (e) { $("#scPick").hidden = true; }
+    }
+
+    /* ---------- photos ---------- */
+
+    async function pixelsOf(file, maxSide) {
+        let bmp;
+        try { bmp = await createImageBitmap(file, { imageOrientation: "from-image" }); }
+        catch (e) { bmp = await createImageBitmap(file); }
+        const sc = Math.min(1, maxSide / Math.max(bmp.width, bmp.height));
+        const w = Math.max(1, Math.round(bmp.width * sc)), h = Math.max(1, Math.round(bmp.height * sc));
+        const cv = new OffscreenCanvas(w, h);
+        const g = cv.getContext("2d", { willReadFrequently: true });
+        g.imageSmoothingQuality = "high";
+        g.drawImage(bmp, 0, 0, w, h);
+        if (bmp.close) bmp.close();
+        return g.getImageData(0, 0, w, h);
+    }
+
+    async function addFiles(files) {
+        const log = $("#scLog");
+        log.textContent = "";
+        let any = false;
+        for (const f of files) {
+            const line = el("div");
+            const name = (f.name || "photo").slice(0, 40);
+            if (!/^image\//.test(f.type)) { line.appendChild(el("span", "warn", name + ": not an image")); log.appendChild(line); continue; }
+            try {
+                let found = [];
+                for (const side of [PHOTO_MAX, 1600]) {
+                    const id = await pixelsOf(f, side);
+                    found = QRD.decode(id.data, id.width, id.height, { max: 6 });
+                    if (found.length) break;
+                }
+                if (!found.length) {
+                    line.appendChild(el("span", "warn", name + ": no code found. Try a sharper, closer photo with the whole square in it."));
+                } else {
+                    const notes = [];
+                    for (const fnd of found) notes.push(await take(fnd.text));
+                    const good = notes.filter(r => r.kind === "sheet" || r.kind === "key").length;
+                    const bad = notes.find(r => r.kind === "bad");
+                    line.appendChild(el("span", bad ? "bad" : (good ? "ok" : ""), name + ": " +
+                        (bad ? bad.note : notes.map(r => r.note).join(" "))));
+                    any = any || good > 0;
+                }
+            } catch (e) {
+                line.appendChild(el("span", "bad", name + ": could not be opened as an image"));
+            }
+            log.appendChild(line);
+            draw();
+        }
+        if (any && navigator.vibrate) { try { navigator.vibrate(60); } catch (e) {} }
+        bumpScanIdle();
+    }
+
+    /* ---------- handing over ---------- */
+
+    function openBackup() {
+        if (vault.open) return say("A vault is open. Close it first, then open this backup.", "warn");
+        const err = loadPaper(joinedText());
+        if (err) return say(err, "bad");
+        /* Handed over, so it need not stay here. */
+        sheets = new Map(); total = 0; lastNote = "";
+        stopCamera();
+        say("");
+        draw();
+        tab("vault");
+        notify("Backup read, passphrase or key needed");
+        $("#inPass").focus();
+    }
+
+    function useKey() {
+        if (vault.open) return say("A vault is already open.", "warn");
+        if (!pending) return say("Open a backup or a vault file first: the key needs something to open.", "warn");
+        $("#breakWrap").hidden = false;
+        $("#inKey").value = keyText;
+        keyText = null;
+        draw();
+        tab("vault");
+        $("#btnUnlockKey").click();
+    }
+
+    function saveText() {
+        const t = new Date().toISOString().replace(/[:.]/g, "-").replace("T", "-").slice(0, 19);
+        download("scanned-" + t + ".txt", joinedText() + "\n");
+        notify("Saved");
+    }
+
+    /* ---------- idle, and leaving ---------- */
+
+    function bumpScanIdle() {
+        clearTimeout(idleT);
+        if (!sheets.size && !keyText && !stream) return;
+        idleT = setTimeout(() => { clearAll(true); notify("Scan cleared after 5 minutes idle", true); }, SCAN_IDLE_MS);
+    }
+
+    /* ---------- wiring ---------- */
+
+    $("#scCam").addEventListener("click", () => startCamera());
+    $("#scStop").addEventListener("click", () => { stopCamera(); say(""); });
+    $("#scPhotos").addEventListener("click", () => $("#scPhotoIn").click());
+    $("#scPhotoIn").addEventListener("change", e => {
+        const files = Array.from(e.target.files || []);
+        e.target.value = "";
+        if (files.length) addFiles(files);
+    });
+    $("#scClear").addEventListener("click", () => {
+        if ((sheets.size || keyText) && !confirm("Clear everything read so far?")) return;
+        clearAll();
+    });
+    $("#scSel").addEventListener("change", e => startCamera(e.target.value));
+    $("#scZoom").addEventListener("input", e => {
+        if (track) track.applyConstraints({ advanced: [{ zoom: Number(e.target.value) }] }).catch(() => {});
+    });
+    $("#scTorch").addEventListener("click", () => {
+        torchOn = !torchOn;
+        if (track) track.applyConstraints({ advanced: [{ torch: torchOn }] }).catch(() => { torchOn = false; });
+    });
+    $("#scMirror").addEventListener("click", () => { mirrorAuto = true; setMirror(!$("#scBox").classList.contains("mirror")); });
+    $("#scOpen").addEventListener("click", openBackup);
+    $("#scSave").addEventListener("click", saveText);
+    $("#scKeyUse").addEventListener("click", useKey);
+    $("#scKeyClear").addEventListener("click", () => { keyText = null; draw(); notify("Key cleared"); });
+    ["pointerdown", "keydown"].forEach(e => document.addEventListener(e, bumpScanIdle, true));
+
+    draw();
+    return { addFiles, stop: stopCamera };
+})();
+
 /* ---------- leakage guards ---------- */
 
 /* An unhandled drop navigates the tab to the dropped file, which would throw
-   away an unlocked vault. Swallow it, and treat a dropped vault as an open. */
+   away an unlocked vault. Swallow it. A dropped photo goes to the scanner, and
+   a dropped vault is treated as an open. */
 document.addEventListener("dragover", e => e.preventDefault());
 document.addEventListener("drop", e => {
     e.preventDefault();
-    const f = e.dataTransfer && e.dataTransfer.files[0];
-    if (f) read(f, loadJson);
+    const files = Array.from((e.dataTransfer && e.dataTransfer.files) || []);
+    if (!files.length) return;
+    if (/^image\//.test(files[0].type)) { tab("scan"); SCAN.addFiles(files); }
+    else read(files[0], loadJson);
 });
 
 window.addEventListener("beforeunload", e => {
@@ -3754,7 +5083,9 @@ window.addEventListener("beforeunload", e => {
     e.returnValue = "";
 });
 
-document.addEventListener("visibilitychange", () => { if (document.hidden) reblurAll(); });
+/* The camera is the one thing here that should not outlive attention. */
+document.addEventListener("visibilitychange", () => { if (document.hidden) { reblurAll(); SCAN.stop(); } });
+window.addEventListener("pagehide", SCAN.stop);
 window.addEventListener("blur", reblurAll);
 ["pointerdown", "keydown"].forEach(e => document.addEventListener(e, bumpIdle, true));
 
