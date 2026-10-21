@@ -1038,6 +1038,7 @@ html[data-design="contour"] .notification.error::before { background: var(--bad)
 #printNotice { display: none; }
 #printNotice p { max-width: 120mm; }
 
+.prose a, .note a { color: var(--accent); }
 textarea.field.blurred {
     filter: blur(6px);
     -webkit-filter: blur(6px);
@@ -1478,6 +1479,7 @@ textarea.field.blurred {
             <!-- from paper -->
             <div id="paperWrap" hidden style="margin-top:14px">
                 <label class="f">Scanned text from the printed backup. Scan each symbol with a phone and paste the results here, in any order.<textarea class="field" id="inPaper" rows="4" autocomplete="off" spellcheck="false" autocapitalize="off"></textarea></label>
+                <div class="note" style="margin-top:10px">Rather not point a phone scanner app at your backup? <a href="scan.html" target="_blank" rel="noopener noreferrer">scan.html</a> reads the codes in a browser tab instead, by code in that one file, with no network access. It opens in a new tab: scan every sheet there, copy the text it gives you, and paste it here. It needs to sit in the same folder as this page.</div>
                 <div class="row" style="margin-top:10px">
                     <button class="btn btn-primary" id="btnPaperLoad">Read backup</button>
                     <button class="btn btn-ghost" id="btnPaperCancel">Cancel</button>
@@ -1496,6 +1498,7 @@ textarea.field.blurred {
                 </div>
                 <div id="breakWrap" hidden style="margin-top:12px">
                     <label class="f">Recovery key from the printed card. Scan the symbol on the card and paste it, or type the 54 characters - case, spaces and line breaks do not matter.<textarea class="field" id="inKey" rows="3" autocomplete="off" spellcheck="false" autocapitalize="off"></textarea></label>
+                    <div class="note" style="margin-top:10px"><a href="scan.html" target="_blank" rel="noopener noreferrer">scan.html</a> reads the card's square code too, and checks the key as it goes.</div>
                     <div class="row" style="margin-top:10px"><button class="btn" id="btnUnlockKey">Unlock with key</button></div>
                 </div>
             </div>
@@ -1655,7 +1658,7 @@ textarea.field.blurred {
                 <p><b>What this is.</b> A private, offline store for account recovery codes - the one-time codes a service gives you for when you lose your authenticator - and anything else you need to survive losing your devices, such as break-glass passwords or a seed phrase. It is not a password manager, and nothing syncs.</p>
                 <p><b>Getting started.</b> Create a vault with a passphrase of six or more unrelated words, then add each account and paste in its codes. Before you close the tab, keep a copy: export the file, print a backup, or both. Then print the key card and store it somewhere apart from everything else.</p>
                 <p><b>Where your data goes.</b> Nowhere. This page cannot connect to the internet and never saves your codes in the browser. Everything lives in this tab, so anything you have not exported or printed is gone when you close it.</p>
-                <p><b>Your backups.</b> The <b>exported file</b> is encrypted and opens in this tool with your passphrase. The <b>printed backup</b> is encrypted QR codes: scan them with a phone camera and paste the text into From paper. The <b>plaintext sheet</b> is every code in readable text. It needs nothing to use, which also means anyone who finds it has your codes, so it belongs in a safe. Keep each in a different place.</p>
+                <p><b>Your backups.</b> The <b>exported file</b> is encrypted and opens in this tool with your passphrase. The <b>printed backup</b> is encrypted QR codes: scan them with a phone camera and paste the text into From paper, or open <b>scan.html</b>, which does the scanning in a browser tab and hands you the joined text. The <b>plaintext sheet</b> is every code in readable text. It needs nothing to use, which also means anyone who finds it has your codes, so it belongs in a safe. Keep each in a different place.</p>
                 <p><b>The key card.</b> The key card opens your vault without the passphrase. That makes it your way back in if you forget the passphrase - and it means the card must be kept apart from your exported file and printed backup, because together they give anyone full access.</p>
                 <p><b>If you forget your passphrase.</b> Open the vault with the key card, choose Change passphrase to set a new one, then export or print again. If a key card is lost or seen by someone else, use Change passphrase with Also replace the key, and print a new card. Neither can reach copies made earlier, so destroy those if they are why you are changing it.</p>
                 <p><b>Backups on several sheets.</b> A large vault prints across more than one sheet, and every sheet is required: losing one loses the whole vault, not part of it. Keep the sheets together. For a copy somewhere else, print a second complete set.</p>
@@ -3484,7 +3487,7 @@ async function printBackup() {
             "Open back-stop and choose From paper.",
             "Paste the text in and choose Read backup.",
             "Unlock it with the passphrase or the key card."
-        ]), el("p", "", "No back-stop? See the last page.")));
+        ]), el("p", "", "No phone scanner you trust? scan.html, beside back-stop, reads these in a browser. No back-stop? See the last page.")));
         cols.appendChild(psPanel("ps-panel", "Backup details", psDetails([
             ["Vault", label],
             ["Printed", stamp],
