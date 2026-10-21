@@ -51,12 +51,12 @@ Line numbers are left out on purpose: they drift, names do not.
 | 13 | Only the three print buttons print | `printCard`, `printBackup`, `printPlain`, the `data-print` attribute, and the `@media print` rules that depend on it | Every path sets `data-print`, removes it again on `afterprint`, and clears what it put in the DOM |
 | 14 | Lock, Close and idle-lock clear the vault | `lockVault`, `closeVault`, `wipe`, `bumpIdle`, `IDLE_MS` | Key bytes zeroed, references dropped, form fields cleared, timer reset on activity |
 | 15 | Untrusted text never becomes markup | Search for `innerHTML`, `outerHTML`, `insertAdjacentHTML`, `document.write`, `eval`, `new Function` | No hits. File contents, scanned text and account names reach the page through `textContent` or `value` only |
-| 16 | The Scan tab stores and sends nothing it reads | The `SCAN` module, and the searches for claims 1, 2 and 12 | `SCAN` never touches `store`, `localStorage`, a URL or a form, and nothing in the page writes to the clipboard. What it reads lives in its own variables and is cleared by `clearAll`, the idle timer and `openBackup` |
-| 17 | The camera is on only while asked for | `startCamera`, `stopCamera`, `render` in `SCAN` (stops it when the last sheet arrives), the `visibilitychange` and `pagehide` listeners, and `Permissions-Policy` in `_headers` and `.htaccess` | Every path that ends a scan stops the tracks. Nothing starts the camera but the Start camera button and the camera picker. The policy is `camera=(self)`, which covers the whole page, so the page's own restraint is what is being checked |
+| 16 | The scanner stores and sends nothing it reads | The `SCAN` module, and the searches for claims 1, 2 and 12 | `SCAN` never touches `store`, `localStorage`, a URL or a form, and nothing in the page writes to the clipboard. What it reads lives in its own variables and is cleared by `reset`, the idle timer, and `render` once the vault is open |
+| 17 | The camera is on only while asked for | `startCamera`, `stopCamera`, `deliver`, `unlockWithKey` (each stops it), the `visibilitychange` and `pagehide` listeners, and `Permissions-Policy` in `_headers` and `.htaccess` | Every path that ends a scan stops the tracks. Only the Scan with the camera and Scan key card buttons, and the camera picker, start it. The policy is `camera=(self)`, which covers the whole page, so the page's own restraint is what is being checked |
 | 18 | The decoder only reports codes whose error correction checks out | `QRD.decode`, `readWithMask`, `rsCorrect`, `decodeModules` | Every block must correct and re-check to zero syndromes before a code is returned. A code that is not byte mode at level M is refused. A mirror image is read by `transposed`. See the next section |
-| 19 | What the scanner hands over is exactly the backup, and nothing else | `take`, `takeSheet`, `checkJoined`, `joinedText` | Only `BS1:i/n:` lines of the base64 alphabet are kept. Sheets from two prints, a repeated sheet that differs, and a joined result that is not a back-stop envelope are refused. Unknown codes are never displayed |
-| 20 | The key is checked as it is read and is never shown or copied | `keyFrom`, `useKey` | `keyFrom` goes through `parseKey`, so the normalisation and check characters are the unlock box's. The key is put in `#inKey` and the unlock button pressed, and the scanner's copy is cleared. No element shows it |
-| 21 | The scanner reaches the vault only through the front door | `loadPaper`, `openBackup`, `useKey` | `loadPaper` is the one function From paper and the Scan tab share. The scanner reads `vault.open` and `pending` and nothing else of the vault: no `state`, no `vault.rawKey`, no `vault.dataKey` |
+| 19 | What the scanner hands over is exactly the backup, and nothing else | `take`, `takeSheet`, `checkJoined`, `joinedText`, `deliver` | Only `BS1:i/n:` lines of the base64 alphabet are kept. Sheets from two prints, a repeated sheet that differs, and a joined result that is not a back-stop envelope are refused. Unknown codes are never displayed. With the camera on for the key card, sheets are ignored, so they cannot replace an open vault |
+| 20 | A scanned key is checked, never shown and never copied | `keyFrom`, `unlockWithKey`, `unlockWithKeyText` | `keyFrom` goes through `parseKey`, and the key is passed to `unlockWithKeyText`, the function the typed key uses, without being written to `#inKey` or anywhere on screen. The scanner's copy is dropped as it is used |
+| 21 | The scanner reaches the vault only through the front door | `loadPaper`, `deliver`, `unlockWithKeyText`, `offerKey` | `loadPaper` is the one function pasted text and the scanner share. The scanner reads `vault.open` and `pending` and nothing else of the vault: no `state`, no `vault.rawKey`, no `vault.dataKey` |
 
 ## The hand-written parts
 
@@ -130,11 +130,12 @@ the file, open it with `recover.py`, print the backup, decode the printed
 symbols with an independent reader, and open that text with `recover.py` too.
 Do it once with the passphrase and once with the key card.
 
-And the round trip through the Scan tab: print a backup and a key card, give
-the pages to the tab as photos, or as a camera, press Open this backup and
-unlock with the passphrase, then again with Unlock with this key. A browser can
-be given a video file as a fake camera for this, and a mirrored one to test the
-mirror path. The vault must open both ways.
+And the round trip through the scanner: print a backup and a key card, give the
+pages to From paper as photos, or as a camera, and unlock with the passphrase,
+then again with Scan key card. Try the key card before the sheets, and a vault
+file opened with From a file. A browser can be given a video file as a fake
+camera for this, and a mirrored one to test the mirror path. The vault must open
+every way.
 
 ## Already known
 

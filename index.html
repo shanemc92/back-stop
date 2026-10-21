@@ -1324,7 +1324,7 @@ textarea.field.blurred {
 /* ---------- scan tab ---------- */
 /* The hidden attribute loses to any rule that sets display, and half the
    controls here are flex rows or labels. */
-#pane-scan [hidden] { display: none !important; }
+#scPanel [hidden] { display: none !important; }
 
 /* The camera. A fixed box, so the page does not jump when the picture
    arrives, with the picture and the outline layer drawn over each other at the
@@ -1395,7 +1395,6 @@ html[data-design="contour"] .sc-chip { border-radius: 999px; }
 
         <nav class="tabs" role="tablist">
             <button class="tab" id="tab-vault" role="tab" aria-selected="true" aria-controls="pane-vault">Vault</button>
-            <button class="tab" id="tab-scan" role="tab" aria-selected="false" aria-controls="pane-scan">Scan</button>
             <button class="tab" id="tab-about" role="tab" aria-selected="false" aria-controls="pane-about">About</button>
         </nav>
 
@@ -1529,10 +1528,15 @@ html[data-design="contour"] .sc-chip { border-radius: 999px; }
 
             <!-- from paper -->
             <div id="paperWrap" hidden style="margin-top:14px">
-                <label class="f">Scanned text from the printed backup. Scan each symbol with a phone and paste the results here, in any order.<textarea class="field" id="inPaper" rows="4" autocomplete="off" spellcheck="false" autocapitalize="off"></textarea></label>
-                <div class="note" style="margin-top:10px">Rather not point a phone scanner app at your backup? The <b>Scan</b> tab reads the codes in this page instead, by code in this one file, with no network access, and opens the backup here without copying anything.</div>
+                <div class="prose">Scan each sheet of the printed backup with this device's camera, in any order, or add photos of them. The codes are read in this page, by code you can read in this one file, so there is no scanner app to trust. The key card can be scanned the same way, before the sheets or after.</div>
+                <div class="row" style="margin-top:12px">
+                    <button class="btn btn-primary" id="scCam" type="button">Scan with the camera</button>
+                    <button class="btn" id="scPhotos" type="button">Add photos</button>
+                </div>
+                <input type="file" id="scPhotoIn" accept="image/*" multiple hidden>
+                <label class="f" style="margin-top:14px">Or paste text from a scanner you trust. Scan each symbol and paste the results here, in any order.<textarea class="field" id="inPaper" rows="4" autocomplete="off" spellcheck="false" autocapitalize="off"></textarea></label>
                 <div class="row" style="margin-top:10px">
-                    <button class="btn btn-primary" id="btnPaperLoad">Read backup</button>
+                    <button class="btn" id="btnPaperLoad">Read pasted text</button>
                     <button class="btn btn-ghost" id="btnPaperCancel">Cancel</button>
                 </div>
                 <div class="log" id="paperLog" style="margin-top:12px"></div>
@@ -1545,11 +1549,12 @@ html[data-design="contour"] .sc-chip { border-radius: 999px; }
                 </div>
                 <div class="row" style="margin-top:10px">
                     <button class="btn btn-primary" id="btnUnlock">Unlock</button>
-                    <button class="btn btn-ghost" id="btnBreak">Use recovery key instead</button>
+                    <button class="btn" id="scKeyCam" type="button">Scan key card</button>
+                    <button class="btn" id="scKeyPhoto" type="button">Key card photo</button>
+                    <button class="btn btn-ghost" id="btnBreak">Type the recovery key instead</button>
                 </div>
                 <div id="breakWrap" hidden style="margin-top:12px">
-                    <label class="f">Recovery key from the printed card. Scan the symbol on the card and paste it, or type the 54 characters - case, spaces and line breaks do not matter.<textarea class="field" id="inKey" rows="3" autocomplete="off" spellcheck="false" autocapitalize="off"></textarea></label>
-                    <div class="note" style="margin-top:10px">The <b>Scan</b> tab reads the card's square code too, checks the key as it goes, and sends it straight to this box.</div>
+                    <label class="f">Recovery key from the printed card: type the 54 characters, or paste them. Case, spaces and line breaks do not matter. Scan key card, above, reads the card's square code instead.<textarea class="field" id="inKey" rows="3" autocomplete="off" spellcheck="false" autocapitalize="off"></textarea></label>
                     <div class="row" style="margin-top:10px"><button class="btn" id="btnUnlockKey">Unlock with key</button></div>
                 </div>
             </div>
@@ -1569,6 +1574,37 @@ html[data-design="contour"] .sc-chip { border-radius: 999px; }
             </div>
 
             <div class="log" id="lockLog" style="margin-top:12px"></div>
+        </div>
+
+        <!-- ================= scanning: camera, sheets, key card ================= -->
+        <div class="panel noprint" id="scPanel" hidden>
+            <div class="panel-head">
+                <h2>Scanning</h2>
+                <span class="sub" id="scSub">camera off</span>
+            </div>
+
+            <div class="sc-cam" id="scBox" hidden>
+                <video id="scVideo" playsinline muted></video>
+                <canvas id="scOver"></canvas>
+            </div>
+            <div class="row sc-tools" id="scTools" hidden>
+                <label class="f sc-pick" id="scPick" hidden>Camera<select class="field" id="scSel"></select></label>
+                <label class="f sc-pick" id="scZoomPick" hidden>Zoom<input type="range" id="scZoom"></label>
+                <button class="btn btn-sm" id="scMirror" type="button" aria-pressed="false" title="Flip the picture left to right. Codes are read either way.">Mirror: off</button>
+                <button class="btn btn-sm" id="scTorch" type="button" hidden>Light</button>
+                <button class="btn btn-sm" id="scStop" type="button">Stop camera</button>
+            </div>
+
+            <div class="log sc-log" id="scLog" role="status" aria-live="polite"></div>
+
+            <ul class="sc-chips" id="scChips" hidden></ul>
+            <div class="log" id="scSheetsLog" style="margin-top:10px"></div>
+
+            <div class="row" style="margin-top:12px">
+                <button class="btn btn-sm" id="scSave" type="button" hidden>Save as text file</button>
+                <button class="btn btn-sm btn-ghost btn-danger" id="scClear" type="button" hidden>Start over</button>
+            </div>
+            <div class="note" id="scNote" style="margin-top:10px" hidden></div>
         </div>
 
         <!-- ================= vault actions, only once open ================= -->
@@ -1702,84 +1738,6 @@ html[data-design="contour"] .sc-chip { border-radius: 999px; }
         </div>
     </dialog>
 
-    <section id="pane-scan" role="tabpanel" aria-labelledby="tab-scan" hidden>
-
-        <!-- ================= scan the printed backup ================= -->
-        <div class="panel noprint" id="scPanel">
-            <div class="panel-head">
-                <h2>Scan the printed backup</h2>
-                <span class="sub" id="scSub">nothing read yet</span>
-            </div>
-
-            <div class="prose">Point the camera at each QR code on your printed backup, one sheet at a
-            time and in any order, or add photos of them. The codes are read in this page, by code you
-            can read in this one file. Nothing is sent anywhere, so there is no scanner app to trust.</div>
-
-            <div class="row" style="margin-top:14px">
-                <button class="btn btn-primary" id="scCam" type="button">Start camera</button>
-                <button class="btn" id="scPhotos" type="button">Add photos</button>
-                <button class="btn btn-ghost btn-danger" id="scClear" type="button" hidden>Start over</button>
-            </div>
-            <input type="file" id="scPhotoIn" accept="image/*" multiple hidden>
-
-            <div class="sc-cam" id="scBox" hidden>
-                <video id="scVideo" playsinline muted></video>
-                <canvas id="scOver"></canvas>
-            </div>
-            <div class="row sc-tools" id="scTools" hidden>
-                <label class="f sc-pick" id="scPick" hidden>Camera<select class="field" id="scSel"></select></label>
-                <label class="f sc-pick" id="scZoomPick" hidden>Zoom<input type="range" id="scZoom"></label>
-                <button class="btn btn-sm" id="scMirror" type="button" aria-pressed="false" title="Flip the picture left to right. Codes are read either way.">Mirror: off</button>
-                <button class="btn btn-sm" id="scTorch" type="button" hidden>Light</button>
-                <button class="btn btn-sm" id="scStop" type="button">Stop camera</button>
-            </div>
-
-            <div class="log sc-log" id="scLog" role="status" aria-live="polite"></div>
-        </div>
-
-        <div class="panel noprint" id="scSheets" hidden>
-            <div class="panel-head">
-                <h2>Sheets</h2>
-                <span class="sub" id="scSheetsSub"></span>
-            </div>
-            <ul class="sc-chips" id="scChips"></ul>
-            <div class="log" id="scSheetsLog" style="margin-top:10px"></div>
-        </div>
-
-        <div class="panel noprint" id="scResult" hidden>
-            <div class="panel-head">
-                <h2>Open this backup</h2>
-                <span class="sub" id="scResultSub"></span>
-            </div>
-            <div class="prose">Every sheet is read, and together they are one encrypted backup. Opening it takes
-            you to the Vault tab, where you unlock it with your passphrase or key card. Nothing is copied
-            anywhere on the way.</div>
-            <div class="row" style="margin-top:12px">
-                <button class="btn btn-primary" id="scOpen" type="button">Open this backup</button>
-                <button class="btn" id="scSave" type="button">Save as text file</button>
-            </div>
-            <div class="note" style="margin-top:10px">The saved file is the encrypted backup as text, for
-            <code>recover.py</code> if you have no browser to use: <code>python3 recover.py scanned.txt</code>.</div>
-        </div>
-
-        <div class="panel noprint" id="scKey" hidden>
-            <div class="panel-head">
-                <h2>Recovery key card</h2>
-                <span class="sub">read, check characters match</span>
-            </div>
-            <div class="prose">The key card is read, and its two check characters match. It stays in this tab until
-            you use it or clear it, and it is never shown or copied: Unlock with this key sends it straight to the
-            unlock box on the Vault tab.</div>
-            <div class="row" style="margin-top:12px">
-                <button class="btn btn-primary" id="scKeyUse" type="button">Unlock with this key</button>
-                <button class="btn btn-ghost btn-danger" id="scKeyClear" type="button">Clear key</button>
-            </div>
-            <div class="note" style="margin-top:10px">Open a backup first, from a file, from paper, or with Open this
-            backup above: the key needs something to open.</div>
-        </div>
-
-    </section>
-
     <section id="pane-about" role="tabpanel" aria-labelledby="tab-about" hidden>
         <div class="panel">
             <div class="panel-head"><h2>About</h2></div>
@@ -1787,11 +1745,11 @@ html[data-design="contour"] .sc-chip { border-radius: 999px; }
                 <p><b>What this is.</b> A private, offline store for account recovery codes - the one-time codes a service gives you for when you lose your authenticator - and anything else you need to survive losing your devices, such as break-glass passwords or a seed phrase. It is not a password manager, and nothing syncs.</p>
                 <p><b>Getting started.</b> Create a vault with a passphrase of six or more unrelated words, then add each account and paste in its codes. Before you close the tab, keep a copy: export the file, print a backup, or both. Then print the key card and store it somewhere apart from everything else.</p>
                 <p><b>Where your data goes.</b> Nowhere. This page cannot connect to the internet and never saves your codes in the browser. Everything lives in this tab, so anything you have not exported or printed is gone when you close it.</p>
-                <p><b>Your backups.</b> The <b>exported file</b> is encrypted and opens in this tool with your passphrase. The <b>printed backup</b> is encrypted QR codes: scan them with a phone camera and paste the text into From paper, or use the <b>Scan</b> tab, which does the scanning in this page and opens the backup for you. The <b>plaintext sheet</b> is every code in readable text. It needs nothing to use, which also means anyone who finds it has your codes, so it belongs in a safe. Keep each in a different place.</p>
+                <p><b>Your backups.</b> The <b>exported file</b> is encrypted and opens in this tool with your passphrase. The <b>printed backup</b> is encrypted QR codes: scan them with a phone camera and paste the text into From paper, or scan them in this page: choose From paper, then Scan with the camera. The <b>plaintext sheet</b> is every code in readable text. It needs nothing to use, which also means anyone who finds it has your codes, so it belongs in a safe. Keep each in a different place.</p>
                 <p><b>The key card.</b> The key card opens your vault without the passphrase. That makes it your way back in if you forget the passphrase - and it means the card must be kept apart from your exported file and printed backup, because together they give anyone full access.</p>
                 <p><b>If you forget your passphrase.</b> Open the vault with the key card, choose Change passphrase to set a new one, then export or print again. If a key card is lost or seen by someone else, use Change passphrase with Also replace the key, and print a new card. Neither can reach copies made earlier, so destroy those if they are why you are changing it.</p>
                 <p><b>Backups on several sheets.</b> A large vault prints across more than one sheet, and every sheet is required: losing one loses the whole vault, not part of it. Keep the sheets together. For a copy somewhere else, print a second complete set.</p>
-                <p><b>Scanning.</b> The Scan tab reads the printed QR codes through the camera, or from photos you add, with a decoder written for this tool and sitting in this file. It ticks each sheet off, refuses sheets from two different prints, and when they are all in, opens the backup on the Vault tab. It can read the key card's code too. It needs the camera only while you have it switched on, and nothing it reads is copied, saved or sent: the backup and the key go straight to where you unlock. If your camera gives a mirror image, the codes are still read, and Mirror flips the picture to look right.</p>
+                <p><b>Scanning.</b> From paper can read the printed QR codes itself, through the camera or from photos you add, with a decoder written for this tool and sitting in this file. Scan the sheets in any order; when the last one is in, the backup opens. Then type your passphrase, or choose Scan key card. A key card can also be scanned first, or along with the sheets: it unlocks the backup the moment there is one. Nothing it reads is copied, saved or sent: the backup and the key go straight to where you unlock. The camera is on only while you have it switched on. If your camera gives a mirror image, the codes are still read, and Mirror flips the picture to look right.</p>
                 <p><b>Lock and close.</b> Lock hides the vault but keeps it in this tab, so your passphrase or key card reopens it. It also locks itself after five minutes idle. Close discards it.</p>
                 <p><b>Without this page.</b> If this page is ever unavailable, recover.py from the same repository opens an exported file or a scanned backup using only Python, with nothing to install.</p>
                 <p><b>Good to know.</b> Codes and notes are blurred on screen: hold show to read one, and a field you are typing in stays readable. Print on paper with a local printer - printing to PDF saves your codes to disk, and network printers can keep a copy of the job. Only the three print buttons print anything; pressing Ctrl+P on its own prints only a short notice.</p>
@@ -2162,7 +2120,7 @@ applyMode(store.get("mode") || MODES[0], false);
 })();
 
 /* ---------- tabs ---------- */
-const TABS = [["vault", "pane-vault"], ["scan", "pane-scan"], ["about", "pane-about"]];
+const TABS = [["vault", "pane-vault"], ["about", "pane-about"]];
 function tab(which) {
     TABS.forEach(([id, pane]) => {
         $("#tab-" + id).setAttribute("aria-selected", String(id === which));
@@ -2836,6 +2794,7 @@ function loadJson(text) {
     pending = d;
     lockUi("open", "vault from " + (d.exported || "unknown date").slice(0, 10));
     notify("Vault loaded, passphrase needed");
+    SCAN.offerKey();
 }
 
 /* Lock re-seals the CURRENT state into an in-memory envelope before dropping
@@ -2913,6 +2872,7 @@ function bumpIdle() {
 
 function render() {
     const open = vault.open;
+    if (open) SCAN.reset(true);
     /* The actions panel only exists when there is a vault to act on, so the
        buttons no longer need a disabled state at all. */
     $("#panelStart").hidden = open;
@@ -3617,7 +3577,7 @@ async function printBackup() {
             "Open back-stop and choose From paper.",
             "Paste the text in and choose Read backup.",
             "Unlock it with the passphrase or the key card."
-        ]), el("p", "", "No phone scanner you trust? back-stop's Scan tab reads these. No back-stop? See the last page.")));
+        ]), el("p", "", "No phone scanner you trust? back-stop can scan these itself: From paper, then Scan with the camera. No back-stop? See the last page.")));
         cols.appendChild(psPanel("ps-panel", "Backup details", psDetails([
             ["Vault", label],
             ["Printed", stamp],
@@ -3675,20 +3635,25 @@ $("#btnCard").addEventListener("click", printCard);
 $("#btnPaper").addEventListener("click", printBackup);
 $("#btnPlain").addEventListener("click", printPlain);
 
-$("#btnPaperIn").addEventListener("click", () => {
-    const showing = !$("#paperWrap").hidden;
-    if (showing) { $("#inPaper").value = ""; lockUi("idle"); return; }
+/* Opens the From paper area: the camera and photo buttons, and the paste box. */
+function openPaperArea() {
+    if (vault.open || !$("#paperWrap").hidden) return;
     lockUi("paper", pending ? undefined : "reading a printed backup");
     $("#lockIdle").hidden = true;
     $("#paperWrap").hidden = false;
-    $("#inPaper").focus();
+}
+$("#btnPaperIn").addEventListener("click", () => {
+    const showing = !$("#paperWrap").hidden;
+    if (showing) { $("#inPaper").value = ""; SCAN.reset(true); lockUi(pending ? "open" : "idle"); return; }
+    openPaperArea();
 });
 $("#btnPaperCancel").addEventListener("click", () => {
     $("#inPaper").value = "";
     $("#paperLog").textContent = "";
+    SCAN.reset(true);
     lockUi(pending ? "open" : "idle");
 });
-/* From paper and the Scan tab both end here. Returns a message if the text is
+/* Pasted text and the scanner both end here. Returns a message if the text is
    not a backup, and nothing if it was read. */
 function loadPaper(text) {
     let file;
@@ -3703,6 +3668,7 @@ $("#btnPaperLoad").addEventListener("click", () => {
     if (err) { $("#paperLog").textContent = err; return notify("Could not read that backup", true); }
     $("#inPaper").value = "";
     notify("Backup read, passphrase or key needed");
+    SCAN.offerKey();
 });
 $("#btnReset").addEventListener("click", lockVault);
 
@@ -3803,15 +3769,18 @@ $("#btnUnlock").addEventListener("click", async () => {
     $("#btnUnlock").disabled = false;
 });
 
-$("#btnUnlockKey").addEventListener("click", async () => {
-    if (!pending) return notify("Open a vault file first", true);
-    const typed = $("#inKey").value.trim();
-    if (!typed) return notify("Recovery key needed", true);
+/* A typed key and a scanned one both go through here, so the scanner never has
+   to put a key in the box where anyone can read it. Says whether it opened. */
+async function unlockWithKeyText(typed) {
+    if (!pending) { notify("Open a vault file first", true); return false; }
+    typed = String(typed).trim();
+    if (!typed) { notify("Recovery key needed", true); return false; }
     let raw;
     try { raw = await parseKey(typed); }
     catch (e) {
         $("#lockLog").textContent = e.message;
-        return notify("That key is not readable", true);
+        notify("That key is not readable", true);
+        return false;
     }
     try {
         await openWithKey(pending, raw);
@@ -3819,11 +3788,14 @@ $("#btnUnlockKey").addEventListener("click", async () => {
         pending = null;
         render();
         notify("Unlocked with the recovery key");
+        return true;
     } catch (e) {
         $("#lockLog").textContent = "that key does not open this vault";
         notify("Could not unlock", true);
+        return false;
     }
-});
+}
+$("#btnUnlockKey").addEventListener("click", () => unlockWithKeyText($("#inKey").value));
 
 $("#btnAdd").addEventListener("click", () => openEditor(-1));
 $("#acctFilter").addEventListener("input", renderRows);
@@ -4613,16 +4585,18 @@ const QRD = (() => {
 
 
 /* ---------- the scanner ---------------------------------------------------
-   The Scan tab. Reads the QR codes on a printed backup, from the camera or
-   from photos, collects the sheets, and hands the joined backup to the same
-   place From paper does, or the key card's key to the same place the typed
-   key goes. Nothing is copied: the clipboard is never involved, so neither the
-   backup nor the key can be left behind in clipboard history.
+   Reads the QR codes on a printed back-stop backup and on its key card, from
+   the camera or from photos, as part of opening a vault. The sheets can come
+   in any order and the key card before them or after: the backup opens as
+   soon as every sheet is in, and a key card that has been read unlocks it the
+   moment there is something for it to unlock. It goes to the same places the
+   paste box and the typed key do, so nothing passes through the clipboard and
+   neither the backup nor the key can be left behind in clipboard history.
 
    What it holds while it works is the encrypted backup, which is useless on
    its own, and the key card's key if that has been read. All of it lives in
    these variables, is never stored, and is cleared on Start over, after five
-   minutes idle, and once it has been used.
+   minutes idle, and once the vault is open.
    ------------------------------------------------------------------------ */
 
 const SCAN = (() => {
@@ -4636,7 +4610,9 @@ const SCAN = (() => {
     let sheets = new Map();              // sheet number -> its piece of the base64
     let total = 0;                       // how many sheets there are, from the first one read
     let keyText = null;                  // the recovery key, once its card has been read
-    let stream = null, track = null, loopT = null, idleT = null, lastNote = "", announced = false;
+    let delivered = false;               // the joined backup has been handed to From paper
+    let want = "backup";                 // what the camera was switched on for: "backup" or "key"
+    let stream = null, track = null, loopT = null, idleT = null, lastNote = "";
     let mirrorAuto = false, torchOn = false, tickBusy = false;
 
     /* ---------- what a code says ---------- */
@@ -4667,10 +4643,14 @@ const SCAN = (() => {
         return { kind: "sheet", note: "Read sheet " + i + " of " + n + "." };
     }
 
-    async function take(text) {
+    /* onlyKey: the camera was switched on for the key card, to unlock something
+       already open, so a backup sheet in view is not one to take. */
+    async function take(text, onlyKey) {
         const t = String(text).trim();
         const m = CHUNK.exec(t);
-        if (m) return takeSheet(+m[1], +m[2], m[3]);
+        if (m) return onlyKey
+            ? { kind: "other", note: "That is a backup sheet. Show the key card, which has one square code." }
+            : takeSheet(+m[1], +m[2], m[3]);
         const k = await keyFrom(t);
         if (k === "bad")
             return { kind: "bad", note: "That looks like a recovery key, but its check characters do not match. Scan it again." };
@@ -4712,6 +4692,7 @@ const SCAN = (() => {
     /* ---------- the page ---------- */
 
     function say(note, kind) {
+        $("#scPanel").hidden = false;
         const log = $("#scLog");
         log.textContent = "";
         if (note) log.appendChild(el("span", kind || "", note));
@@ -4720,26 +4701,30 @@ const SCAN = (() => {
     function draw() {
         const have = sheets.size;
         const complete = total > 0 && have === total;
-        $("#scSub").textContent = have ? have + " of " + total + " sheets read" : (keyText ? "key card read" : "nothing read yet");
+        $("#scSub").textContent = stream ? "camera on" : (have ? have + " of " + total + " sheets" : (keyText ? "key card read" : "camera off"));
         $("#scClear").hidden = !(have || keyText);
 
-        $("#scSheets").hidden = !have;
         const chips = $("#scChips");
         chips.textContent = "";
+        chips.hidden = !have;
         for (let i = 1; i <= total; i++)
             chips.appendChild(el("li", "sc-chip" + (sheets.has(i) ? " have" : ""), "sheet " + i + (sheets.has(i) ? " - read" : " - missing")));
-        $("#scSheetsSub").textContent = have ? have + " of " + total : "";
         const log = $("#scSheetsLog");
         log.textContent = "";
+        $("#scSave").hidden = true;
+        $("#scNote").hidden = !keyText;
+        $("#scNote").textContent = keyText
+            ? (pending ? "The key card is read, and opens this backup." :
+               "The key card is read. It opens the backup the moment every sheet is in, or a vault file you open.")
+            : "";
 
-        let result = false;
         if (complete) {
             const v = checkJoined();
             if (v.ok) {
-                result = true;
-                $("#scResultSub").textContent = v.bytes + " bytes";
+                $("#scSave").hidden = false;
                 log.appendChild(el("span", "ok", "Every sheet is read. Together they are " + v.bytes +
                     " bytes, which is the size printed on each sheet."));
+                if (!delivered) deliver();
             } else {
                 log.appendChild(el("span", "bad", v.why));
             }
@@ -4749,24 +4734,49 @@ const SCAN = (() => {
             log.appendChild(el("span", "", "Still needed: sheet" + (missing.length === 1 ? " " : "s ") + missing.join(", ") +
                 ". Every sheet is required: a partial set opens nothing."));
         }
-        $("#scResult").hidden = !result;
-        $("#scKey").hidden = !keyText;
-
-        /* Once, at the moment the last sheet arrives. After that the camera can be
-           turned on again, to read the key card for instance, and stays on. */
-        if (!(complete && result)) announced = false;
-        else if (!announced) {
-            announced = true;
-            if (stream) { stopCamera(); notify("Every sheet is read. The camera is off."); }
-        }
     }
 
-    function clearAll(quiet) {
-        sheets = new Map(); total = 0; keyText = null; lastNote = "";
+    /* Resets everything, hides the panel and turns the camera off. */
+    function reset(quiet) {
+        sheets = new Map(); total = 0; keyText = null; lastNote = ""; delivered = false;
         stopCamera();
-        say("");
+        $("#scLog").textContent = "";
+        $("#scPanel").hidden = true;
         draw();
         if (!quiet) notify("Cleared");
+    }
+
+    /* The last sheet is in: hand the backup to the place From paper puts it,
+       turn the camera off, and if the key card has been read, use it. */
+    function deliver() {
+        delivered = true;
+        if (vault.open) return say("A vault is open. Close it first, then scan the backup.", "warn");
+        const err = loadPaper(joinedText());
+        if (err) { delivered = false; return say(err, "bad"); }
+        const wasOn = !!stream;
+        stopCamera();
+        say("Every sheet is read and the backup is open. Type your passphrase, or scan the key card.", "ok");
+        notify(wasOn ? "Backup read. The camera is off." : "Backup read, passphrase or key needed");
+        if (keyText) unlockWithKey();
+    }
+
+    /* The key goes through the same function a typed key does, without ever
+       being put in the box. It is used once and dropped. */
+    async function unlockWithKey() {
+        if (vault.open || !pending || !keyText) return;
+        const k = keyText;
+        keyText = null;
+        stopCamera();
+        say("Unlocking with the key card...");
+        draw();
+        if (!(await unlockWithKeyText(k)) && !vault.open)
+            say($("#lockLog").textContent || "That key did not open the backup.", "bad");
+    }
+
+    /* A key card was read. If there is something for it to open, open it. */
+    function onKey() {
+        if (pending && !vault.open) unlockWithKey();
+        else say("Key card read. It will open the backup as soon as every sheet is in.", "ok");
     }
 
     /* Takes what the reader found. Only a change of news is shown, so a sheet held
@@ -4775,7 +4785,7 @@ const SCAN = (() => {
     async function handleFound(texts) {
         let news = null;
         for (const t of texts) {
-            const r = await take(t);
+            const r = await take(t, want === "key" && !!pending);
             if (r.kind === "sheet" || r.kind === "key") { news = r; break; }
             if (!news || (news.kind === "dup" && r.kind !== "dup")) news = r;
         }
@@ -4789,6 +4799,7 @@ const SCAN = (() => {
             }
         }
         draw();
+        if (news.kind === "key") onKey();
         bumpScanIdle();
         return news;
     }
@@ -4832,9 +4843,9 @@ const SCAN = (() => {
         $("#scVideo").srcObject = null;
         $("#scBox").hidden = true;
         $("#scTools").hidden = true;
-        $("#scCam").textContent = "Start camera";
         const cv = $("#scOver");
         cv.getContext("2d").clearRect(0, 0, cv.width, cv.height);
+        $("#scSub").textContent = sheets.size ? sheets.size + " of " + total + " sheets" : (keyText ? "key card read" : "camera off");
     }
 
     async function tick() {
@@ -4861,7 +4872,7 @@ const SCAN = (() => {
                     notify("This camera gives a mirror image, so the picture is flipped. Press Mirror to undo that.");
                 }
                 const news = await handleFound(found.map(f => f.text));
-                outline(found.map(f => f.corners), news ? news.kind : "other", w, h);
+                outline(stream ? found.map(f => f.corners) : null, news ? news.kind : "other", w, h);
                 tick.shown = performance.now();
             } else if (performance.now() - (tick.shown || 0) > 400) {
                 outline(null, "", w, h);
@@ -4872,7 +4883,8 @@ const SCAN = (() => {
         tickBusy = false;
     }
 
-    async function startCamera(deviceId) {
+    async function startCamera(deviceId, purpose) {
+        if (purpose) want = purpose;
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             say("This browser cannot open a camera for this page. Add photos instead.", "bad");
             return;
@@ -4904,8 +4916,9 @@ const SCAN = (() => {
         mirrorAuto = false;
         $("#scBox").hidden = false;
         $("#scTools").hidden = false;
-        $("#scCam").textContent = "Restart camera";
-        say("Looking for codes. Hold a sheet so its square fills most of the view.");
+        say(want === "key" ? "Hold the key card so its square code fills most of the view."
+                           : "Looking for codes. Hold a sheet so its square fills most of the view.");
+        draw();
         await cameraControls();
         clearTimeout(loopT);
         loopT = setTimeout(tick, 120);
@@ -4954,9 +4967,9 @@ const SCAN = (() => {
     }
 
     async function addFiles(files) {
+        say("");
         const log = $("#scLog");
-        log.textContent = "";
-        let any = false;
+        let gotKey = false;
         for (const f of files) {
             const line = el("div");
             const name = (f.name || "photo").slice(0, 40);
@@ -4975,9 +4988,9 @@ const SCAN = (() => {
                     for (const fnd of found) notes.push(await take(fnd.text));
                     const good = notes.filter(r => r.kind === "sheet" || r.kind === "key").length;
                     const bad = notes.find(r => r.kind === "bad");
+                    gotKey = gotKey || notes.some(r => r.kind === "key");
                     line.appendChild(el("span", bad ? "bad" : (good ? "ok" : ""), name + ": " +
                         (bad ? bad.note : notes.map(r => r.note).join(" "))));
-                    any = any || good > 0;
                 }
             } catch (e) {
                 line.appendChild(el("span", "bad", name + ": could not be opened as an image"));
@@ -4985,35 +4998,8 @@ const SCAN = (() => {
             log.appendChild(line);
             draw();
         }
-        if (any && navigator.vibrate) { try { navigator.vibrate(60); } catch (e) {} }
+        if (gotKey) onKey();
         bumpScanIdle();
-    }
-
-    /* ---------- handing over ---------- */
-
-    function openBackup() {
-        if (vault.open) return say("A vault is open. Close it first, then open this backup.", "warn");
-        const err = loadPaper(joinedText());
-        if (err) return say(err, "bad");
-        /* Handed over, so it need not stay here. */
-        sheets = new Map(); total = 0; lastNote = "";
-        stopCamera();
-        say("");
-        draw();
-        tab("vault");
-        notify("Backup read, passphrase or key needed");
-        $("#inPass").focus();
-    }
-
-    function useKey() {
-        if (vault.open) return say("A vault is already open.", "warn");
-        if (!pending) return say("Open a backup or a vault file first: the key needs something to open.", "warn");
-        $("#breakWrap").hidden = false;
-        $("#inKey").value = keyText;
-        keyText = null;
-        draw();
-        tab("vault");
-        $("#btnUnlockKey").click();
     }
 
     function saveText() {
@@ -5027,14 +5013,16 @@ const SCAN = (() => {
     function bumpScanIdle() {
         clearTimeout(idleT);
         if (!sheets.size && !keyText && !stream) return;
-        idleT = setTimeout(() => { clearAll(true); notify("Scan cleared after 5 minutes idle", true); }, SCAN_IDLE_MS);
+        idleT = setTimeout(() => { reset(true); notify("Scan cleared after 5 minutes idle", true); }, SCAN_IDLE_MS);
     }
 
     /* ---------- wiring ---------- */
 
-    $("#scCam").addEventListener("click", () => startCamera());
-    $("#scStop").addEventListener("click", () => { stopCamera(); say(""); });
+    $("#scCam").addEventListener("click", () => startCamera(null, "backup"));
+    $("#scKeyCam").addEventListener("click", () => startCamera(null, "key"));
+    $("#scStop").addEventListener("click", () => { stopCamera(); say(""); $("#scPanel").hidden = !(sheets.size || keyText); });
     $("#scPhotos").addEventListener("click", () => $("#scPhotoIn").click());
+    $("#scKeyPhoto").addEventListener("click", () => $("#scPhotoIn").click());
     $("#scPhotoIn").addEventListener("change", e => {
         const files = Array.from(e.target.files || []);
         e.target.value = "";
@@ -5042,7 +5030,7 @@ const SCAN = (() => {
     });
     $("#scClear").addEventListener("click", () => {
         if ((sheets.size || keyText) && !confirm("Clear everything read so far?")) return;
-        clearAll();
+        reset();
     });
     $("#scSel").addEventListener("change", e => startCamera(e.target.value));
     $("#scZoom").addEventListener("input", e => {
@@ -5053,14 +5041,13 @@ const SCAN = (() => {
         if (track) track.applyConstraints({ advanced: [{ torch: torchOn }] }).catch(() => { torchOn = false; });
     });
     $("#scMirror").addEventListener("click", () => { mirrorAuto = true; setMirror(!$("#scBox").classList.contains("mirror")); });
-    $("#scOpen").addEventListener("click", openBackup);
     $("#scSave").addEventListener("click", saveText);
-    $("#scKeyUse").addEventListener("click", useKey);
-    $("#scKeyClear").addEventListener("click", () => { keyText = null; draw(); notify("Key cleared"); });
     ["pointerdown", "keydown"].forEach(e => document.addEventListener(e, bumpScanIdle, true));
 
     draw();
-    return { addFiles, stop: stopCamera };
+    /* offerKey: a vault file or a pasted backup has just been opened, and a key
+       card read earlier may be waiting for it. */
+    return { addFiles, reset, offerKey: () => { if (keyText && pending && !vault.open) unlockWithKey(); }, stop: stopCamera };
 })();
 
 /* ---------- leakage guards ---------- */
@@ -5073,7 +5060,7 @@ document.addEventListener("drop", e => {
     e.preventDefault();
     const files = Array.from((e.dataTransfer && e.dataTransfer.files) || []);
     if (!files.length) return;
-    if (/^image\//.test(files[0].type)) { tab("scan"); SCAN.addFiles(files); }
+    if (/^image\//.test(files[0].type)) { openPaperArea(); SCAN.addFiles(files); }
     else read(files[0], loadJson);
 });
 

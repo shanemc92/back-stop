@@ -35,7 +35,8 @@ your passphrase or the key card.
 - Prints a key card that opens the vault without the passphrase.
 - Restores from the exported file or the printed QR codes.
 - Reads the printed QR codes itself, through the camera or from photos, with a
-  decoder of its own, so no phone scanner app is needed (the Scan tab).
+  decoder of its own, so no phone scanner app is needed (From paper, then Scan
+  with the camera).
 - Keeps free-text notes per account, and one for the vault as a whole, for
   anything that is not a list of codes.
 - Keeps accounts in alphabetical order by provider.
@@ -45,7 +46,7 @@ your passphrase or the key card.
 | | What you need to open it | Where it belongs |
 |---|---|---|
 | Exported file | this tool + passphrase or key card | disk, sync, wherever |
-| Printed backup | a phone camera or the Scan tab, + passphrase or key card | a folder, a deposit box, a relative's house |
+| Printed backup | a phone camera, or back-stop's own scanning, + passphrase or key card | a folder, a deposit box, a relative's house |
 | Plaintext sheet | nothing | a safe |
 | Key card | - | apart from all of the above |
 
@@ -67,7 +68,7 @@ scanned text back in, and either the passphrase or the key card opens it.
 
 To restore from paper, scan each QR code with your phone's camera app and paste
 the text into **From paper**, in any order. That is easiest done entirely on a
-phone. If you would rather not use a scanner app at all, the **Scan** tab does
+phone. If you would rather not use a scanner app at all, **From paper** can do
 the scanning inside back-stop.
 
 ### Backups on several sheets
@@ -95,31 +96,37 @@ how to open it with nothing but Python.
 
 A phone's camera app or a scanner app is someone else's software looking at your
 backup. The codes are encrypted and no use without your passphrase or key card,
-but if you would rather not hand them to an app you cannot read, the **Scan**
-tab does the reading itself.
+but if you would rather not hand them to an app you cannot read, back-stop does
+the reading itself.
 
-It reads the QR codes through the camera, or from photos you add, with a decoder
-written for this tool and sitting in `index.html`. Each sheet is ticked off as it
-is read, and when they are all in, **Open this backup** takes you to the Vault
-tab, ready for your passphrase or key card. If the key card's code is read too,
-**Unlock with this key** sends the key straight to the unlock box.
+It is part of opening a vault. Choose **From paper**, then **Scan with the
+camera**, or **Add photos** if you would rather use pictures. The decoder is
+written for this tool and sits in `index.html`. Hold the sheets up one at a time,
+in any order, and each is ticked off. When the last one is in, the backup opens
+and asks for your passphrase, or for the key card: **Scan key card** reads its
+square code and unlocks straight away. The key card can also be scanned first,
+or along with the sheets, and it unlocks the backup the moment there is one. A
+vault file you open with **From a file** can be unlocked the same way.
 
-- **No clipboard.** The backup and the key go from the scanner to where you
-  unlock, inside the page, so neither is left in clipboard history. The scanner
-  has no copy buttons.
+- **No clipboard.** The backup goes from the scanner to where you unlock, inside
+  the page, and a scanned key goes through the same check as a typed one without
+  ever being put in the key box, so neither can be left in clipboard history or
+  read off the screen. The scanner has no copy buttons.
 - **Mirror.** Some webcams and front cameras give a mirror image. The decoder
   reads those as they are, and flips the picture so a sheet looks right; the
   **Mirror** button flips it back.
-- **The camera.** Only while you press Start camera. It turns off when every
-  sheet is in, when you press Stop, and when you leave the tab.
+- **The camera.** Only while you press Scan with the camera or Scan key card. It
+  turns off when every sheet is in, when the key card is read, when you press
+  Stop, and when you leave the tab.
 - **Nothing leaves it.** What it reads is kept in memory only, cleared by Start
-  over, after five minutes idle, and once it has been handed over.
+  over, after five minutes idle, and once the vault is open.
 - **Getting a good read.** Even light, no glare, the sheet flat and the square
   filling most of the view. A dense sheet, with many small squares, needs a
   steadier hand and a sharper camera than a small one: move closer, use Zoom if
   it appears, or add a photo instead.
-- **If it will not read a code,** any other scanner will, and `recover.py` opens
-  a scanned backup with nothing but Python. **Save as text file** writes the
+- **If it will not read a code,** any other scanner will, and you can paste what
+  it gives you into the box under the camera buttons. `recover.py` opens a
+  scanned backup with nothing but Python, and **Save as text file** writes the
   joined backup for it.
 
 ## If you forget your passphrase
@@ -231,9 +238,10 @@ notes are for:
 - **Spellcheck and autofill are off** in every field, since some browsers send
   what you type to a remote spellcheck service.
 - **There are no copy buttons**, because clipboard history can sync between
-  devices. The Scan tab hands the backup and the key to the unlock box directly
+  devices. The scanner hands the backup and the key to the unlock step directly
   for the same reason.
-- **The camera is off until you switch it on**, and only the Scan tab can.
+- **The camera is off until you switch it on**, and only Scan with the camera and
+  Scan key card can.
 - **Closing the tab with a vault open asks first.**
 
 Print on paper with a local printer. Printing to PDF saves your codes to disk,
@@ -252,7 +260,7 @@ afterwards.
   content security policy forbids them.
 - **Leaving traces in the browser.** Nothing is stored there but your choice
   of design, mode and accent.
-- **A scanner app you do not trust.** The Scan tab reads the printed codes
+- **A scanner app you do not trust.** back-stop can read the printed codes
   itself, in a page with no network access.
 - **A damaged or altered copy.** Encryption is authenticated, so a corrupted
   file or backup fails to open rather than producing wrong codes.
@@ -312,7 +320,7 @@ afterwards.
   been independently reviewed. `AI_AUDIT_INSTRUCTIONS.md` says how to check
   it with a separate decoder, and a printed backup should be test-restored
   from paper once before you rely on it.
-- **The Scan tab's decoder is hand-written too**, and has not been
+- **The scanner's decoder is hand-written too**, and has not been
   independently reviewed. It accepts a code only when every block of error
   correction checks out, and what it hands over is ciphertext, so a misread
   fails to decrypt instead of producing wrong codes. It is a convenience: any
