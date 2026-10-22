@@ -31,7 +31,8 @@ your passphrase or the key card.
 
 - Keeps a vault of accounts behind a passphrase, each with its recovery codes.
 - Exports an encrypted `.json` file. Open it again later, add more, export again.
-- Prints an encrypted QR backup for somewhere less trusted than a safe.
+- Prints an encrypted QR backup for somewhere less trusted than a safe, packed
+  so that a sheet holds twice as many codes as it used to.
 - Prints every code in plain text, three dense columns to a sheet, for a safe.
 - Prints a key card that opens the vault without the passphrase, full page or
   at credit-card size to carry in a wallet.
@@ -86,10 +87,10 @@ the scanning inside back-stop.
 
 ### Backups on several sheets
 
-A large vault prints across more than one sheet - roughly fifty to eighty
-codes fit on one, fewer for long random codes and more for short numeric
-ones - and **every sheet is required**. Losing one sheet loses the whole
-vault, not part of it.
+A large vault prints across more than one sheet - about 120 codes fit on one
+for ten-character letter-and-digit codes, and about 170 for eight-digit ones,
+counting the site and email beside each account - and **every sheet is
+required**. Losing one sheet loses the whole vault, not part of it.
 
 That makes the usual advice, to keep copies in different places, actively
 wrong for the sheets of a single backup: splitting three sheets across three
@@ -341,7 +342,18 @@ afterwards.
   That makes the encoder the likeliest place for a quiet bug, and it has not
   been independently reviewed. `AI_AUDIT_INSTRUCTIONS.md` says how to check
   it with a separate decoder, and a printed backup should be test-restored
-  from paper once before you rely on it.
+  from paper once before you rely on it. The tool does its own version of that
+  test before it shows a backup for printing: it reads the symbols back with
+  its own decoder, joins the text the way the paste box does, opens the result
+  with the data key and compares every field with the open vault. If anything
+  differs, it prints a plainer form, then the format older versions used, and
+  if none of them reads back, it prints nothing. That catches a mistake in the
+  tool; it does not replace a restore from paper with the printed sheets.
+- **The printed backup packs the codes** (see *Printed backup* below). The
+  packing is lossless and checked as above, and `recover.py` reads it, but it is
+  a second hand-written format on top of the vault's own, and a backup made by
+  this version cannot be read by an older copy of back-stop or `recover.py`.
+  Backups made by older versions still open in this one.
 - **The scanner's decoder is hand-written too**, and has not been
   independently reviewed. It accepts a code only when every block of error
   correction checks out, and what it hands over is ciphertext, so a misread
@@ -434,21 +446,65 @@ carries the same string as a QR code.
 
 ### Printed backup
 
-The QR codes carry this binary layout, base64 encoded and split across codes,
-each prefixed `BS1:i/n:`. Join them in order of `i` before decoding. The layout
-is also printed on the backup itself.
+The QR codes carry the binary envelope below, as text, split across codes, each
+prefixed `BS2:i/n:` (or `BS1:i/n:` on backups from back-stop 1.0 to 1.4). Join
+the pieces in order of `i`, drop the prefixes, and decode what is left. The
+layout is also printed on the backup itself, in the form that backup uses.
 
 | Field | Bytes |
 |---|---|
 | magic `BS` | 2 |
-| envelope version | 1 |
+| envelope version, 1 or 2 | 1 |
 | PBKDF2 iterations / 1000, big endian | 2 |
 | PBKDF2 salt | 16 |
 | wrapped-key nonce | 12 |
 | wrapped 32-byte data key + 16-byte tag | 48 |
 | body nonce | 12 |
-| flags, bit 0 set when the body is gzipped | 1 |
+| flags, bit 0, see below | 1 |
 | body ciphertext + tag | rest |
+
+**`BS2` text, envelope version 2** (back-stop 1.5 on). The text is base41, which
+is the QR alphanumeric set without space, `.`, `/` and `:`, so that nothing in
+it can be lost to a trailing full stop or a stray space when it is pasted: the
+41 symbols `0-9 A-Z $ % * + -` stand for 0 to 40 in that order. Every three
+symbols `c0 c1 c2` are the number `c0 + 41*c1 + 1681*c2`, which is two bytes,
+high byte first, and a last pair `c0 c1` is one byte, `c0 + 41*c1`. The codes are QR
+alphanumeric-mode symbols, 5.5 bits a character against base64's 8 for 6, which
+is where the extra room comes from. Upper case only, but a lower-case letter is
+read as its capital.
+
+The flag bit says the JSON in the body is zlib-compressed (RFC 1950). The
+decrypted body is:
+
+| Part | |
+|---|---|
+| J | the length of the JSON, as a varint: 7 bits a byte, low bits first, top bit set while more follow |
+| JSON | J bytes, zlib-compressed when the flag is set |
+| packed codes | the rest, possibly empty |
+
+The JSON is the vault file's, with empty fields left out and `app` dropped
+(`schema`, `meta` with `label`, `date`, `note`, and `items` with `site`, `user`,
+`codes`, `note`, `body`). An account whose codes share a layout has a `pk` in
+place of `codes`, such as `"pk": "ddddd=-ddddd/10"`: a layout, a slash and how
+many codes there are. Reading the layout left to right, `d` is a decimal digit,
+`x` and `X` a lower- and upper-case hex digit, `a` and `A` a lower- and
+upper-case letter or digit, `m` any letter or digit, and `=` makes the next
+character stand for itself (printable ASCII only). A code is one number in the
+mixed radix of its positions, the first most significant, digits counting
+0-9 and then the letters in order (`m`: 0-9, A-Z, a-z), written in as few bits
+as hold the largest such number. The codes of all packed accounts follow one
+another in the tail, in the order the accounts appear, high bit first, with the
+last byte padded with zeros. Anything that does not fit a layout stays as text
+in `codes`: codes of different lengths, with a stray symbol, in a block of
+fewer than three, or on a line with a separator that varies.
+
+`recover.py` reads all of this. A backup is packed only when that is smaller,
+and only after the tool has read it back and found it identical.
+
+**`BS1` text, envelope version 1** (back-stop 1.0 to 1.4). Base64 of the same
+envelope, in byte-mode symbols, with the body the vault file's JSON, gzipped
+when flag bit 0 is set. A current back-stop prints this only as a last resort,
+when the newer format would not read back, and still opens everything older.
 
 ## Files
 

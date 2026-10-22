@@ -9,8 +9,8 @@ a printed paper backup, and prints the codes.
 
 Standard library only, by design. A recovery tool you cannot run until you have
 installed something is not a recovery tool, so AES-256-GCM is implemented here
-rather than imported. Everything else - PBKDF2, gzip, base64, JSON - is stdlib
-already. Verify the crypto before trusting it:
+rather than imported. Everything else - PBKDF2, gzip, zlib, base64, JSON - is
+stdlib already. Verify the crypto before trusting it:
 
     python3 recover.py --selftest
 
@@ -44,6 +44,7 @@ import json
 import re
 import sys
 import unicodedata
+import zlib
 
 FORMAT = b"back-stop-vault-1"   # AAD for both GCM layers
 
@@ -52,8 +53,13 @@ FORMAT = b"back-stop-vault-1"   # AAD for both GCM layers
 ITER_MIN = 100000
 ITER_MAX = 10000000
 ENV_MAGIC = b"BS"
-ENV_VER = 1
+ENV_VER = 1       # body is the vault file's JSON, gzipped when flag bit 0 is set
+ENV_VER_V2 = 2    # body is the packed container; flag bit 0: its JSON is zlib-compressed
 ENV_FIXED = 3 + 2 + 16 + 12 + 48 + 12 + 1
+
+# The paper text of an envelope. BS1 is base64; BS2 is base41, the QR
+# alphanumeric set less space, full stop, / and :, three symbols to two bytes.
+B41 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ$%*+-"
 
 
 # ---------------------------------------------------------------- AES-256
@@ -237,13 +243,53 @@ def parse_key(text):
 
 # ---------------------------------------------------------------- envelopes
 
+def b41_decode(text):
+    """Base41, as printed on a BS2 backup. Every 3 symbols c0 c1 c2 are the
+    number c0 + 41*c1 + 1681*c2, which is 2 bytes high byte first; a last pair
+    c0 c1 is one byte, c0 + 41*c1. Upper case only: a lower-case letter can
+    only be one that something along the way folded, so it is read as upper."""
+    t = text.upper()
+    if len(t) % 3 == 1:
+        raise ValueError("that text is not a whole backup")
+    out = bytearray()
+    for i in range(0, len(t), 3):
+        digits = []
+        for ch in t[i:i + 3]:
+            k = B41.find(ch)
+            if k < 0:
+                raise ValueError("that text has a character a backup never holds")
+            digits.append(k)
+        if len(digits) == 3:
+            n = digits[0] + digits[1] * 41 + digits[2] * 1681
+            if n > 65535:
+                raise ValueError("that text is damaged")
+            out += n.to_bytes(2, "big")
+        else:
+            n = digits[0] + digits[1] * 41
+            if n > 255:
+                raise ValueError("that text is damaged")
+            out.append(n)
+    return bytes(out)
+
+
 def unpack_paper(text):
     """Reassemble the chunks scanned off a printed backup. Any order, and any
-    surrounding noise a scanner or a notes app may have added."""
+    surrounding noise a scanner or a notes app may have added. Returns the
+    envelope bytes, from either kind of backup."""
+    has1 = re.search(r"BS1:\d+/\d+:", text)
+    has2 = re.search(r"BS2:\d+/\d+:", text, re.I)
+    if has1 and has2:
+        raise ValueError("these chunks come from two different kinds of backup "
+                         "(BS1 and BS2). Read one backup at a time.")
+    kind = 2 if has2 else 1
+    pattern = (r"BS2:(\d+)/(\d+):([0-9A-Za-z$%*+\-]+)" if kind == 2
+               else r"BS1:(\d+)/(\d+):([A-Za-z0-9+/=]+)")
     found = {}
     total = None
-    for m in re.finditer(r"BS1:(\d+)/(\d+):([A-Za-z0-9+/=]+)", text):
+    for m in re.finditer(pattern, text, re.I if kind == 2 else 0):
         i, n, payload = int(m.group(1)), int(m.group(2)), m.group(3)
+        if kind == 2:
+            payload = payload.upper()
         if total is None:
             total = n
         elif total != n:
@@ -252,7 +298,8 @@ def unpack_paper(text):
             raise ValueError("a chunk claims to be sheet %d of %d, which cannot be right" % (i, n))
         found[i] = payload
     if total is None:
-        raise ValueError("no back-stop chunks found in that text (expected BS1:1/n:...)")
+        raise ValueError("no back-stop chunks found in that text (expected BS2:1/n:... "
+                         "or, on older backups, BS1:1/n:...)")
     missing = [i for i in range(1, total + 1) if i not in found]
     if missing:
         # Name the sheet to go and look for, and say plainly that there is no
@@ -277,6 +324,8 @@ def unpack_paper(text):
                "the missing %s" % sheets(missing) if len(missing) == 1 else "them",
                "it" if len(missing) == 1 else "them"))
     joined = "".join(found[i] for i in range(1, total + 1))
+    if kind == 2:
+        return b41_decode(joined)
     return base64.b64decode(joined + "=" * (-len(joined) % 4))
 
 
@@ -286,7 +335,8 @@ def parse_envelope(b):
         raise ValueError("that backup is truncated")
     if b[0:2] != ENV_MAGIC:
         raise ValueError("that is not a back-stop backup")
-    if b[2] != ENV_VER:
+    ver = b[2]
+    if ver not in (ENV_VER, ENV_VER_V2):
         raise ValueError("that backup was written by a newer version of back-stop")
     o = 3
     iterations = int.from_bytes(b[o:o + 2], "big") * 1000
@@ -296,13 +346,19 @@ def parse_envelope(b):
     wrap_ct, o = b[o:o + 48], o + 48
     body_iv, o = b[o:o + 12], o + 12
     flags, o = b[o], o + 1
+    # Version 2 uses one flag bit; any other is something later than this
+    # script, and guessing at it would only fail to decrypt.
+    if ver == ENV_VER_V2 and flags & ~1:
+        raise ValueError("that backup was written by a newer version of back-stop")
     return {
         "iterations": iterations,
         "salt": salt,
         "wrap_iv": wrap_iv,
         "wrap_ct": wrap_ct,
         "body_iv": body_iv,
-        "gzip": bool(flags & 1),
+        "gzip": ver == ENV_VER and bool(flags & 1),
+        "v2": ver == ENV_VER_V2,
+        "zlib": ver == ENV_VER_V2 and bool(flags & 1),
         "body_ct": b[o:],
     }
 
@@ -313,13 +369,16 @@ def parse_vault_file(text):
     if d.get("format") and d["format"] != FORMAT.decode():
         raise ValueError("unexpected vault format %r" % d["format"])
     b64 = lambda s: base64.b64decode(s)
+    comp = d["body"].get("comp")
     return {
         "iterations": d["kdf"]["iter"],
         "salt": b64(d["kdf"]["salt"]),
         "wrap_iv": b64(d["wrap"]["iv"]),
         "wrap_ct": b64(d["wrap"]["ct"]),
         "body_iv": b64(d["body"]["iv"]),
-        "gzip": d["body"].get("comp") == "gzip",
+        "gzip": comp == "gzip",
+        "v2": comp in ("v2", "v2z"),
+        "zlib": comp == "v2z",
         "body_ct": b64(d["body"]["ct"]),
     }
 
@@ -329,7 +388,7 @@ def load(text):
     stripped = text.strip()
     if stripped.startswith("{"):
         return parse_vault_file(stripped)
-    if "BS1:" in stripped:
+    if re.search(r"BS[12]:\d", stripped, re.I):
         return parse_envelope(unpack_paper(stripped))
     # a bare base64 envelope, e.g. one chunk with its prefix already removed
     try:
@@ -337,6 +396,134 @@ def load(text):
     except (binascii.Error, ValueError):
         raise ValueError("could not tell what that input is")
     return parse_envelope(raw)
+
+
+# ---------------------------------------------------------------- body v2
+
+# The sets a packed layout can name, smallest first in the order back-stop
+# chooses them. Kept identical to PK_SETS in index.html.
+PK_SETS = {
+    "d": "0123456789",
+    "x": "0123456789abcdef",
+    "X": "0123456789ABCDEF",
+    "a": "0123456789abcdefghijklmnopqrstuvwxyz",
+    "A": "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+    "m": "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+}
+PK_MAX_LINES = 4096
+PK_MAX_WIDTH = 64
+
+
+def _damaged():
+    return ValueError("the backup is damaged")
+
+
+def parse_layout(spec):
+    """A packed account's "pk", such as ddddd=-ddddd/10: a layout read left to
+    right (d decimal digit, x/X lower/upper hex, a/A lower/upper letter or
+    digit, m any letter or digit, = then a character for that character
+    itself) and, after the last slash, how many codes. Returns the slots, the
+    bits one code takes, and the count."""
+    if not isinstance(spec, str) or len(spec) > 300:
+        raise _damaged()
+    cut = spec.rfind("/")
+    count = spec[cut + 1:]
+    if cut < 1 or not re.fullmatch(r"[1-9][0-9]{0,3}", count) or int(count) > PK_MAX_LINES:
+        raise _damaged()
+    slots, radix, i = [], 1, 0
+    while i < cut:
+        c = spec[i]
+        if c == "=":
+            i += 1
+            if i >= cut or not " " <= spec[i] <= "~":
+                raise _damaged()
+            slots.append(("lit", spec[i]))
+        elif c in PK_SETS:
+            slots.append(("set", PK_SETS[c]))
+            radix *= len(PK_SETS[c])
+        else:
+            raise _damaged()
+        i += 1
+    if not slots or len(slots) > PK_MAX_WIDTH:
+        raise _damaged()
+    bits = (radix - 1).bit_length() if radix > 1 else 0
+    return slots, bits, int(count)
+
+
+def decode_v2(plain, zipped):
+    """The body of a version 2 backup, or a vault file marked v2, as the same
+    dict the older JSON gives. plain is the decrypted body:
+
+        varint J, J bytes of JSON (zlib-compressed if `zipped`), packed codes
+
+    An account with a "pk" in place of "codes" has its codes in the packed
+    tail, one number each in the mixed radix of the layout, first position
+    most significant, high bit first, every packed account in turn."""
+    n = shift = at = 0
+    while True:
+        if at >= len(plain) or at >= 4:
+            raise _damaged()
+        byte = plain[at]
+        at += 1
+        n |= (byte & 127) << shift
+        shift += 7
+        if not byte & 128:
+            break
+    if at + n > len(plain):
+        raise _damaged()
+    js = plain[at:at + n]
+    if zipped:
+        js = zlib.decompress(js)
+    d = json.loads(js.decode("utf-8"))
+    if not isinstance(d, dict) or not isinstance(d.get("items"), list):
+        raise _damaged()
+
+    tail = plain[at + n:]
+    total = len(tail) * 8
+    big = int.from_bytes(tail, "big")
+    pos = 0
+    items = []
+    for it in d["items"]:
+        if not isinstance(it, dict):
+            raise _damaged()
+        codes = it.get("codes")
+        if "pk" in it:
+            slots, bits, count = parse_layout(it["pk"])
+            lines = []
+            for _ in range(count):
+                if pos + bits > total:
+                    raise _damaged()
+                v = (big >> (total - pos - bits)) & ((1 << bits) - 1) if bits else 0
+                pos += bits
+                chars = [None] * len(slots)
+                for k in range(len(slots) - 1, -1, -1):
+                    kind, s = slots[k]
+                    if kind == "lit":
+                        chars[k] = s
+                    else:
+                        v, r = divmod(v, len(s))
+                        chars[k] = s[r]
+                if v:
+                    raise _damaged()
+                lines.append("".join(chars))
+            codes = "\n".join(lines)
+        items.append({
+            "site": str(it.get("site") or ""), "user": str(it.get("user") or ""),
+            "codes": str(codes or ""), "note": str(it.get("note") or ""),
+            "body": str(it.get("body") or ""),
+        })
+    rest = total - pos
+    if rest >= 8 or (rest and big & ((1 << rest) - 1)):
+        raise _damaged()
+
+    meta = d.get("meta") if isinstance(d.get("meta"), dict) else {}
+    out = {k: v for k, v in d.items() if k not in ("meta", "items")}
+    out.setdefault("schema", 1)
+    out.setdefault("app", "back-stop")
+    out["meta"] = dict(meta, label=str(meta.get("label") or ""), date=str(meta.get("date") or ""),
+                       note=str(meta.get("note") or ""))
+    out["items"] = items
+    return out
 
 
 # ---------------------------------------------------------------- unwrap
@@ -381,6 +568,8 @@ def open_vault(env, passphrase=None, data_key=None):
     except ValueError:
         raise ValueError("that key does not open this vault, or the backup is damaged")
 
+    if env.get("v2"):
+        return decode_v2(body, env.get("zlib", False))
     if env["gzip"]:
         body = gzip.decompress(body)
     return json.loads(body.decode("utf-8"))
@@ -528,8 +717,72 @@ def selftest():
     except ValueError as e:
         check("recovery key typo reported", "typo" in str(e), True)
 
+    # Base41, the text of a BS2 backup.
+    check("base41, one byte", b41_decode("00"), b"\x00")
+    check("base41, five bytes", b41_decode("100TI086"), bytes([0, 1, 2, 255, 254]))
+    check("base41, lower case read as upper", b41_decode("100ti086"), bytes([0, 1, 2, 255, 254]))
+    check("base41, a full group, two bytes", b41_decode("H-*"), b"\xff\xff")
+    check("base41, impossible group refused", _refused(lambda: b41_decode("---")), True)
+    check("base41, stray symbol refused", _refused(lambda: b41_decode("1:0")), True)
+    check("base41, ragged end refused", _refused(lambda: b41_decode("1000")), True)
+
+    # Version 2 bodies, written by the browser side (index.html) and read here.
+    # The container is a varint J, J bytes of JSON, then the packed codes. This
+    # one has its JSON stored, so the layouts can be read off by eye: the first
+    # account has six codes of "d=0dddddd" (a fixed 0 in the second place and
+    # decimal digits elsewhere), the second four of "xxxxx=-xxxxx".
+    v2_json = (b'{"schema":1,"meta":{"label":"selftest","date":"2026-10-22"},'
+               b'"items":[{"site":"github","user":"alex@example.com","pk":"d=0dddddd/6"},'
+               b'{"site":"dropbox","pk":"xxxxx=-xxxxx/4"},'
+               b'{"site":"notes","body":"free text\\nsecond line"},'
+               b'{"site":"mixed","codes":"mixed 1\\nmixed 22","note":"two codes only"}]}')
+    v2_tail = bytes.fromhex("13be172463743557bb44c56255b5c166a9fea1b2cd3e4f0123abcdef9f8e7d6c5b"
+                            "1111122222")
+    v2_items = [
+        {"site": "github", "user": "alex@example.com", "note": "", "body": "",
+         "codes": "10293847\n20384756\n30495867\n40506978\n50617089\n60728190"},
+        {"site": "dropbox", "user": "", "note": "", "body": "",
+         "codes": "a1b2c-d3e4f\n0123a-bcdef\n9f8e7-d6c5b\n11111-22222"},
+        {"site": "notes", "user": "", "codes": "", "note": "", "body": "free text\nsecond line"},
+        {"site": "mixed", "user": "", "codes": "mixed 1\nmixed 22", "note": "two codes only", "body": ""},
+    ]
+    v2_head = bytes([(len(v2_json) & 127) | 128, len(v2_json) >> 7])   # J = 292, a two-byte varint
+    body = decode_v2(v2_head + v2_json + v2_tail, False)
+    check("v2 body, packed codes and text", (body["meta"]["label"], body["items"]), ("selftest", v2_items))
+    check("v2 body, a short tail refused",
+          _refused(lambda: decode_v2(v2_head + v2_json + v2_tail[:-1], False)), True)
+    check("v2 body, stray trailing bits refused",
+          _refused(lambda: decode_v2(v2_head + v2_json + v2_tail + b"\x01", False)), True)
+
+    # A whole BS2 backup, end to end: base41, the envelope, AES-GCM with the
+    # data key bytes 0..31, zlib, packed codes.
+    bs2 = (
+        "BS2:1/1:54AMC0MKDI7UD193$IN4JXVR4LP1H9V-L8TIT1WGR77EW4A5VV$IY73E8R"
+        "JVUIM3XJWHPJDH45*W3%3AR$G5*APQCS+QUMCJ+S3+16ZN7SQEREC5NBQ3VNK31UMA"
+        "46KB2CM9ZHEK9$X8OON1Z8L$IG6EFU95E4RL-%$4S4NV%C62$CE9PBSGVMX+ZY98HT"
+        "836C0MXJNPDX-YRGXU8UFGWRMEMV1YJ7WFB3QJQP8L27BFCY+PK%V$FH4Z91340FZ-"
+        "0$ZYBXRMZQGJW$CVFTFYP-8AVMW333S%VJ6YN0H-D92034P7-7EY$Z2KL3XKXQNBCD"
+        "OER6W7+6N%YD2C-TFGTGJEGLJKSZQAN9KGVA-X0+W1TZ23%G9$HYNUCM4%$IEN+LC8"
+        "HU%3U6-FBV1-AYMWX5%UWM12S1TE57XGANBH$LJ8DBF6ELLOZBTB93XDC1%6C2ZP3T"
+        "SJL4KUTY$8HXRJET6EGJ3Y9IJ26+Y%SQF8EFUHI*E4HUW7446AGBBIV4Z*33V9X2")
+    check("whole BS2 backup opens with its key",
+          open_vault(load(bs2), data_key=bytes(range(32)))["items"], v2_items)
+    check("same backup, lower-cased",
+          open_vault(load(bs2.lower()), data_key=bytes(range(32)))["items"], v2_items)
+    check("BS1 and BS2 together are refused",
+          _refused(lambda: load(bs2 + "\nBS1:1/1:AAAA")), True)
+
     print("\n%s" % ("all checks passed" if ok else "SOME CHECKS FAILED - do not trust this copy"))
     return 0 if ok else 1
+
+
+def _refused(fn):
+    """Whether fn raised the ValueError a damaged or mixed input should."""
+    try:
+        fn()
+    except ValueError:
+        return True
+    return False
 
 
 # ---------------------------------------------------------------- cli

@@ -1879,7 +1879,7 @@ html[data-design="contour"] .sc-chip { border-radius: 999px; }
 
 <footer class="footer">
     <span>back-stop</span>
-    <span class="ver" id="footVer">v1.4.0</span>
+    <span class="ver" id="footVer">v1.5.0</span>
     <span class="sep">&middot;</span>
     <span>MIT</span>
     <span class="sep">&middot;</span>
@@ -1901,7 +1901,7 @@ html[data-design="contour"] .sc-chip { border-radius: 999px; }
 "use strict";
 
 /* ---------- app identity ---------- */
-const APP = { id: "back-stop", version: "1.4.0", schema: 1 };
+const APP = { id: "back-stop", version: "1.5.0", schema: 1 };
 
 /* ---------- dom helpers ---------- */
 const $  = s => document.querySelector(s);
@@ -2323,7 +2323,7 @@ const QR_ECC = [[[1,26,16]],[[1,44,28]],[[1,70,44]],[[2,50,32]],[[2,67,43]],[[4,
 const QR_CAP = [16,28,44,64,86,108,124,154,182,216,254,290,334,365,415,453,507,563,627,669,714,782,860,914,1000,1062,1128,1193,1267,1373,1455,1541,1631,1725,1812,1914,1992,2102,2216,2334];
 const QR_ALIGN = [[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50],[6,30,54],[6,32,58],[6,34,62],[6,26,46,66],[6,26,48,70],[6,26,50,74],[6,30,54,78],[6,30,56,82],[6,30,58,86],[6,34,62,90],[6,28,50,72,94],[6,26,50,74,98],[6,30,54,78,102],[6,28,54,80,106],[6,32,58,84,110],[6,30,58,86,114],[6,34,62,90,118],[6,26,50,74,98,122],[6,30,54,78,102,126],[6,26,52,78,104,130],[6,30,56,82,108,134],[6,34,60,86,112,138],[6,30,58,86,114,142],[6,34,62,90,118,146],[6,30,54,78,102,126,150],[6,24,50,76,102,128,154],[6,28,54,80,106,132,158],[6,32,58,84,110,136,162],[6,26,54,82,110,138,166],[6,30,58,86,114,142,170]];
 
-/* ---------- QR, byte mode, error level M ----------------------------------
+/* ---------- QR, byte and alphanumeric modes, error level M ----------------
    Written for this tool rather than pulled in as a dependency: the content
    security policy forbids remote scripts and the whole file has to stay
    auditable. Level M fixed at 15 percent recovery, which is the point where a
@@ -2362,27 +2362,40 @@ function rsEc(data, n) {
     return res.slice(data.length);
 }
 
-function qrFitVersion(len) {
-    for (let v = 1; v <= 40; v++) {
-        const cci = v < 10 ? 8 : 16;
-        if (Math.ceil((4 + cci + len * 8) / 8) <= QR_CAP[v - 1]) return v;
-    }
+/* The two segment types back-stop writes. Byte mode carries anything a byte
+   can; alphanumeric mode carries the 45 characters below at 5.5 bits each
+   instead of 8, which is where the backup's text goes (see base41, further
+   down). The character count field is 8/16 bits wide in byte mode and 9, 11
+   or 13 in alphanumeric mode, depending on the version. */
+const QR_ALNUM = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:";
+const qrCountBits = (mode, ver) => mode === "alnum" ? (ver < 10 ? 9 : ver < 27 ? 11 : 13) : (ver < 10 ? 8 : 16);
+const qrDataBits = (mode, len) => mode === "alnum" ? 11 * (len >> 1) + 6 * (len & 1) : len * 8;
+/* The longest text, in characters, that fits a version at level M. */
+function qrRoom(mode, ver) {
+    const avail = QR_CAP[ver - 1] * 8 - 4 - qrCountBits(mode, ver);
+    if (mode !== "alnum") return Math.floor(avail / 8);
+    return 2 * Math.floor(avail / 11) + (avail % 11 >= 6 ? 1 : 0);
+}
+
+function qrFitVersion(len, mode) {
+    for (let v = 1; v <= 40; v++)
+        if (Math.ceil((4 + qrCountBits(mode, v) + qrDataBits(mode, len)) / 8) <= QR_CAP[v - 1]) return v;
     return 0;
 }
-const qrMaxBytes = () => {
-    for (let v = 40; v >= 1; v--) {
-        const cci = v < 10 ? 8 : 16;
-        return Math.floor((QR_CAP[v - 1] * 8 - 4 - cci) / 8);
-    }
-};
 
-function qrCodewords(bytesIn, ver) {
+/* values: the bytes (byte mode) or the 0..44 table positions (alphanumeric). */
+function qrCodewords(values, ver, mode) {
     const cap = QR_CAP[ver - 1];
     const bits = [];
     const put = (val, len) => { for (let i = len - 1; i >= 0; i--) bits.push((val >>> i) & 1); };
-    put(4, 4);
-    put(bytesIn.length, ver < 10 ? 8 : 16);
-    for (let i = 0; i < bytesIn.length; i++) put(bytesIn[i], 8);
+    put(mode === "alnum" ? 2 : 4, 4);
+    put(values.length, qrCountBits(mode, ver));
+    if (mode === "alnum") {
+        for (let i = 0; i + 1 < values.length; i += 2) put(values[i] * 45 + values[i + 1], 11);
+        if (values.length & 1) put(values[values.length - 1], 6);
+    } else {
+        for (let i = 0; i < values.length; i++) put(values[i], 8);
+    }
     for (let i = 0; i < 4 && bits.length < cap * 8; i++) bits.push(0);
     while (bits.length % 8) bits.push(0);
     const bytes = [];
@@ -2572,16 +2585,25 @@ function qrVersionBits(ver) {
     return (ver << 12) | d;
 }
 
-function qrEncode(text) {
-    const bytes = [];
+/* mode is chosen by the caller and never guessed from the text, so the key
+   card keeps the byte-mode symbol it has always had. */
+function qrEncode(text, mode) {
+    mode = mode === "alnum" ? "alnum" : "byte";
+    const values = [];
     for (let i = 0; i < text.length; i++) {
         const cc = text.charCodeAt(i);
-        if (cc > 255) throw new Error("payload must be single byte characters");
-        bytes.push(cc);
+        if (mode === "alnum") {
+            const k = QR_ALNUM.indexOf(text[i]);
+            if (k < 0) throw new Error("character not in the alphanumeric set");
+            values.push(k);
+        } else {
+            if (cc > 255) throw new Error("payload must be single byte characters");
+            values.push(cc);
+        }
     }
-    const ver = qrFitVersion(bytes.length);
+    const ver = qrFitVersion(values.length, mode);
     if (!ver) throw new Error("payload too large for one symbol");
-    const cw = qrCodewords(bytes, ver);
+    const cw = qrCodewords(values, ver, mode);
     const sk = qrSkeleton(ver);
     const size = sk.size;
     qrPlace(sk.m, sk.fn, size, cw);
@@ -2785,6 +2807,262 @@ async function inflate(bytes, comp) {
     return new Uint8Array(await new Response(ds.readable).arrayBuffer());
 }
 
+/* ---------- paper body, version 2 ------------------------------------------
+   What a printed backup holds instead of the vault file's gzipped JSON. The
+   plaintext that gets encrypted is
+
+     varint J         length of the JSON section, 7 bits a byte, low bits first,
+                      the top bit set while more bytes follow
+     J bytes          the JSON, zlib-compressed when the envelope's flag bit 0
+                      is set, else as it is
+     the rest         packed codes, possibly none
+
+   The JSON has the same shape as the file's, with the empty fields left out.
+   Deflate spends 5 to 6 bits on every character of a recovery code whose
+   information is 3.3 to 5.2, because a code is random and the compressor cannot
+   know that. So an account whose codes all share one layout does not carry them
+   as text. It carries "pk": a layout and a count, and the codes themselves go
+   into the tail as numbers.
+
+     pk = "ddddd=-ddddd/10"     ten codes, each five decimal digits, a dash,
+                                five more
+
+   The layout reads left to right. d is a decimal digit, x a lowercase hex
+   digit, X an uppercase one, a a lowercase letter or digit, A an uppercase
+   letter or digit, m any letter or digit, and = makes the next character
+   stand for itself. A position is literal where every code has the same
+   character there and printable ASCII, and otherwise takes the smallest set
+   that holds every character seen. So the layout is derived from the codes and
+   written down, and the reader never has to guess.
+
+   Each code is one number, the first position most significant, in the mixed
+   radix of its positions, and takes the fewest bits that hold the largest
+   such number. Every packed code of every account goes in the tail one after
+   another, most significant bit first, in the order the accounts appear, and
+   the last byte is padded with zero bits. Anything that does not fit a layout
+   (mixed lengths, spaces for separators, a stray symbol, fewer than three
+   codes) stays as the text it was, so nothing is ever approximated.
+
+   A printed backup is only offered once it has been read back through the
+   very path a scan takes and found identical (see paperSet), so a mistake in
+   any of this costs a plainer print and never a backup that does not open.
+   ------------------------------------------------------------------------ */
+
+async function zdeflate(bytes) {
+    if (typeof CompressionStream !== "function") return { z: false, data: bytes };
+    try {
+        const cs = new CompressionStream("deflate");
+        const w = cs.writable.getWriter();
+        w.write(bytes); w.close();
+        return { z: true, data: new Uint8Array(await new Response(cs.readable).arrayBuffer()) };
+    } catch (e) {
+        return { z: false, data: bytes };
+    }
+}
+async function zinflate(bytes) {
+    if (typeof DecompressionStream !== "function") throw new Error("this browser cannot read compressed backups");
+    const ds = new DecompressionStream("deflate");
+    const w = ds.writable.getWriter();
+    w.write(bytes).catch(() => {});
+    w.close().catch(() => {});
+    return new Uint8Array(await new Response(ds.readable).arrayBuffer());
+}
+
+function varintPut(n) {
+    const out = [];
+    while (n >= 128) { out.push((n % 128) | 128); n = Math.floor(n / 128); }
+    out.push(n);
+    return out;
+}
+function varintGet(b, at) {
+    let v = 0, mul = 1;
+    for (let i = 0; i < 4; i++) {
+        if (at + i >= b.length) break;
+        const x = b[at + i];
+        v += (x & 127) * mul;
+        mul *= 128;
+        if (!(x & 128)) return [v, at + i + 1];
+    }
+    throw new Error("the backup is damaged");
+}
+
+const PK_SETS = {
+    d: "0123456789",
+    x: "0123456789abcdef",
+    X: "0123456789ABCDEF",
+    a: "0123456789abcdefghijklmnopqrstuvwxyz",
+    A: "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+    m: "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+};
+const PK_ORDER = "dxXaAm";                     // smallest set first
+const PK_MIN_LINES = 3, PK_MAX_LINES = 4096, PK_MAX_WIDTH = 64;
+/* BigInt is called, not written as a literal, so an engine without it still
+   parses this page and only fails if asked to pack or unpack. */
+const big = n => BigInt(n);
+const pkLit = ch => typeof ch === "string" && ch.length === 1 && ch >= " " && ch <= "~";
+
+/* The layout a list of codes would be packed as, or null when they do not
+   share one. codes is the account's codes field: one code a line. */
+function pkShape(codes) {
+    if (typeof codes !== "string") return null;
+    const lines = codes.split("\n");
+    if (lines.length < PK_MIN_LINES || lines.length > PK_MAX_LINES) return null;
+    const w = lines[0].length;
+    if (w < 1 || w > PK_MAX_WIDTH || lines.some(l => l.length !== w)) return null;
+    let tpl = "";
+    for (let p = 0; p < w; p++) {
+        const seen = new Set();
+        lines.forEach(l => seen.add(l[p]));
+        if (seen.size === 1) {
+            const ch = lines[0][p];
+            if (!pkLit(ch)) return null;
+            tpl += "=" + ch;
+            continue;
+        }
+        const chars = [...seen];
+        const cls = PK_ORDER.split("").find(k => chars.every(c => PK_SETS[k].indexOf(c) >= 0));
+        if (!cls) return null;
+        tpl += cls;
+    }
+    return tpl + "/" + lines.length;
+}
+
+/* A layout, understood. Throws on anything this code would not have written. */
+function pkParse(spec) {
+    const bad = () => new Error("the backup is damaged");
+    if (typeof spec !== "string" || spec.length > 300) throw bad();
+    const cut = spec.lastIndexOf("/");
+    const count = spec.slice(cut + 1);
+    if (cut < 1 || !/^[1-9][0-9]{0,3}$/.test(count) || +count > PK_MAX_LINES) throw bad();
+    const slots = [];
+    let radix = big(1);
+    for (let i = 0; i < cut; i++) {
+        const c = spec[i];
+        if (c === "=") {
+            i++;
+            if (i >= cut || !pkLit(spec[i])) throw bad();
+            slots.push({ lit: spec[i] });
+        } else if (Object.prototype.hasOwnProperty.call(PK_SETS, c)) {
+            slots.push({ set: PK_SETS[c] });
+            radix *= BigInt(PK_SETS[c].length);
+        } else {
+            throw bad();
+        }
+    }
+    if (!slots.length || slots.length > PK_MAX_WIDTH) throw bad();
+    const bits = radix > big(1) ? (radix - big(1)).toString(2).length : 0;
+    return { n: +count, slots, bits };
+}
+
+/* The codes as a string of 0 and 1 characters, for the layout pkShape chose. */
+function pkBits(spec, codes) {
+    const p = pkParse(spec);
+    const lines = codes.split("\n");
+    if (lines.length !== p.n) throw new Error("code count differs from its layout");
+    let out = "";
+    lines.forEach(l => {
+        if (l.length !== p.slots.length) throw new Error("code width differs from its layout");
+        let v = big(0);
+        p.slots.forEach((s, i) => {
+            if (s.lit !== undefined) {
+                if (l[i] !== s.lit) throw new Error("code differs from its layout");
+                return;
+            }
+            const d = s.set.indexOf(l[i]);
+            if (d < 0) throw new Error("code differs from its layout");
+            v = v * BigInt(s.set.length) + BigInt(d);
+        });
+        if (p.bits) out += v.toString(2).padStart(p.bits, "0");
+    });
+    return out;
+}
+
+/* The inverse: takes the next p.n codes from rd, a { bits, pos } cursor. */
+function pkRead(spec, rd) {
+    const p = pkParse(spec);
+    const lines = [];
+    for (let k = 0; k < p.n; k++) {
+        let v = big(0);
+        if (p.bits) {
+            if (rd.pos + p.bits > rd.bits.length) throw new Error("the packed codes are cut short");
+            v = BigInt("0b" + rd.bits.slice(rd.pos, rd.pos + p.bits));
+            rd.pos += p.bits;
+        }
+        const chars = new Array(p.slots.length);
+        for (let i = p.slots.length - 1; i >= 0; i--) {
+            const s = p.slots[i];
+            if (s.lit !== undefined) { chars[i] = s.lit; continue; }
+            const r = BigInt(s.set.length);
+            chars[i] = s.set[Number(v % r)];
+            v = v / r;
+        }
+        if (v !== big(0)) throw new Error("the packed codes are damaged");
+        lines.push(chars.join(""));
+    }
+    return lines.join("\n");
+}
+
+function bitsToBytes(s) {
+    const out = new Uint8Array(Math.ceil(s.length / 8));
+    for (let i = 0; i < out.length; i++) out[i] = parseInt(s.slice(i * 8, i * 8 + 8).padEnd(8, "0"), 2);
+    return out;
+}
+function bytesToBits(u) {
+    const parts = new Array(u.length);
+    for (let i = 0; i < u.length; i++) parts[i] = u[i].toString(2).padStart(8, "0");
+    return parts.join("");
+}
+
+/* The plaintext of a v2 body for the open vault. packed: pack what can be. */
+async function bodyV2(packed) {
+    let bits = "", count = 0;
+    const items = state.items.map(it => {
+        const o = {};
+        if (it.site) o.site = it.site;
+        if (it.user) o.user = it.user;
+        let done = false;
+        const spec = packed ? pkShape(it.codes) : null;
+        if (spec) {
+            try { bits += pkBits(spec, it.codes); o.pk = spec; done = true; count++; }
+            catch (e) { /* stays text */ }
+        }
+        if (!done && it.codes) o.codes = it.codes;
+        if (it.note) o.note = it.note;
+        if (it.body) o.body = it.body;
+        return o;
+    });
+    const meta = {};
+    ["label", "date", "note"].forEach(k => { if (state.meta[k]) meta[k] = state.meta[k]; });
+    const z = await zdeflate(tenc.encode(JSON.stringify({ schema: APP.schema, meta, items })));
+    const head = varintPut(z.data.length);
+    const blob = bitsToBytes(bits);
+    const plain = new Uint8Array(head.length + z.data.length + blob.length);
+    plain.set(head, 0);
+    plain.set(z.data, head.length);
+    plain.set(blob, head.length + z.data.length);
+    return { plain, comp: z.z ? "v2z" : "v2", packed: count };
+}
+
+async function bodyV2Read(plain, zipped) {
+    const [len, at] = varintGet(plain, 0);
+    if (at + len > plain.length) throw new Error("the backup is damaged");
+    let json = plain.subarray(at, at + len);
+    if (zipped) json = await zinflate(json);
+    const d = JSON.parse(tdec.decode(json));
+    if (!d || typeof d !== "object" || !Array.isArray(d.items)) throw new Error("the backup is damaged");
+    const rd = { bits: bytesToBits(plain.subarray(at + len)), pos: 0 };
+    d.items = d.items.map(it => {
+        if (!it || typeof it !== "object") throw new Error("the backup is damaged");
+        const o = Object.assign({}, it);
+        if (o.pk !== undefined) { o.codes = pkRead(o.pk, rd); delete o.pk; }
+        return o;
+    });
+    /* Whatever is left over must be nothing but the padding of the last byte. */
+    const rest = rd.bits.slice(rd.pos);
+    if (rest.length >= 8 || rest.indexOf("1") >= 0) throw new Error("the backup is damaged");
+    return d;
+}
+
 /* ---------- state --------------------------------------------------------
    Plaintext lives here and only here. No localStorage: persist() is a stub
    so nothing in the template can quietly write codes to this machine.
@@ -2856,22 +3134,41 @@ async function openWithKey(file, raw) {
     if (raw.length !== 32) throw new Error("a recovery key is 32 bytes");
     return adopt(file, raw);
 }
+/* The one place a body is opened, whatever wrote it: the file's gzipped JSON,
+   or a printed backup's version 2 container. Returns the vault with every
+   field present and a string, so what comes out never depends on which
+   writer left something empty. */
+async function openBody(file, dk) {
+    const plain = await gcmDec(dk, file.body);
+    const comp = file.body.comp;
+    if (comp === "v2" || comp === "v2z") return normaliseVault(await bodyV2Read(plain, comp === "v2z"));
+    return normaliseVault(JSON.parse(tdec.decode(await inflate(plain, comp))));
+}
+
+function normaliseVault(d) {
+    if (!d || typeof d !== "object") throw new Error("that is not a back-stop vault");
+    const m = d.meta && typeof d.meta === "object" ? d.meta : {};
+    return Object.assign({}, d, {
+        meta: Object.assign({}, m, {
+            label: String(m.label || ""), date: String(m.date || ""), note: String(m.note || "")
+        }),
+        items: (Array.isArray(d.items) ? d.items : []).map(i => ({
+            site: String((i && i.site) || ""), user: String((i && i.user) || ""),
+            codes: String((i && i.codes) || ""), note: String((i && i.note) || ""),
+            body: String((i && i.body) || "")
+        }))
+    });
+}
+
 async function adopt(file, raw) {
     const dk = await importDataKey(raw);
-    const body = await inflate(await gcmDec(dk, file.body), file.body.comp);
-    const d = JSON.parse(tdec.decode(body));
+    const d = await openBody(file, dk);
     vault.rawKey = raw;
     vault.dataKey = dk;
     vault.kdf = file.kdf;
     vault.wrap = file.wrap;
     vault.open = true;
     state = Object.assign(blankState(), d);
-    state.items = (state.items || []).map(i => ({
-        site: String(i.site || ""), user: String(i.user || ""),
-        codes: String(i.codes || ""), note: String(i.note || ""),
-        body: String(i.body || "")
-    }));
-    state.meta.note = String(state.meta.note || "");
     sortItems();
 }
 
@@ -3461,17 +3758,72 @@ async function printWallet() {
      wrapped key iv            12
      wrapped key + tag         48
      body iv                   12
-     flags (bit 0: gzip)        1
+     flags (bit 0, see below)   1
      body ciphertext + tag      rest
 
-   Base64 of that, split across as many symbols as needed, each prefixed
-   "BS1:i/n:" so they can be scanned in any order. Nothing here is secret: the
-   envelope is exactly what the exported file holds, minus the JSON.
+   Two generations. Envelope version 1 is what back-stop 1.0 to 1.4 printed:
+   the body is the vault file's JSON, gzipped when flag bit 0 is set, and the
+   text is base64, split across as many symbols as needed and prefixed
+   "BS1:i/n:". Version 2 is what is printed now: the body is the container
+   described above bodyV2 (flag bit 0 says its JSON is zlib-compressed), and
+   the text is base41, prefixed "BS2:i/n:". Base41 is the part of the QR
+   alphanumeric set that is safe to paste, and takes 5.5 bits a character
+   against base64's 8 for 6, so a symbol holds about 29 percent more.
+   Everything older is still read; the only thing a version 2 backup needs
+   that an old copy of this page or recover.py lacks is the new reader.
+
+   Either way the symbols can be scanned in any order. Nothing here is secret:
+   the envelope is what the exported file holds, minus the JSON.
    ------------------------------------------------------------------------ */
 
-const ENV_VER = 1;
+const ENV_VER = 1;           // the version the file's gzipped JSON body travels as
+const ENV_VER_V2 = 2;        // the packed container
 const ENV_FIXED = 2 + 1 + 2 + 16 + 12 + 48 + 12 + 1;
 const QR_MAX_VERSION = 25;   // keeps printed modules large enough to scan
+
+/* Base41: the QR alphanumeric set without space, full stop, / and :, which
+   are too easily lost in pasted text (a space, the end of a sentence) or are
+   the chunk prefix's own punctuation. Three symbols carry two bytes (41^3 is
+   more than 65536) and a last pair carries one, the grouping RFC 9285 uses
+   for base45. 41 is the fewest symbols that allows it, and costs nothing:
+   what the QR spends is set by its 45-character table, not by how many we
+   use. */
+const B41 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ$%*+-";
+function b41enc(u) {
+    let s = "";
+    for (let i = 0; i < u.length; i += 2) {
+        if (i + 1 < u.length) {
+            const n = u[i] * 256 + u[i + 1];
+            s += B41[n % 41] + B41[Math.floor(n / 41) % 41] + B41[Math.floor(n / 1681)];
+        } else {
+            s += B41[u[i] % 41] + B41[Math.floor(u[i] / 41)];
+        }
+    }
+    return s;
+}
+function b41dec(str) {
+    const t = String(str).toUpperCase();
+    if (t.length % 3 === 1) throw new Error("that text is not a whole backup");
+    const out = [];
+    for (let i = 0; i < t.length; i += 3) {
+        const v = [];
+        for (let j = i; j < Math.min(i + 3, t.length); j++) {
+            const k = B41.indexOf(t[j]);
+            if (k < 0) throw new Error("that text has a character a backup never holds");
+            v.push(k);
+        }
+        if (v.length === 3) {
+            const n = v[0] + v[1] * 41 + v[2] * 1681;
+            if (n > 65535) throw new Error("that text is damaged");
+            out.push(n >> 8, n & 255);
+        } else {
+            const n = v[0] + v[1] * 41;
+            if (n > 255) throw new Error("that text is damaged");
+            out.push(n);
+        }
+    }
+    return Uint8Array.from(out);
+}
 
 function envBuild(file) {
     const salt = unb64(file.kdf.salt), wIv = unb64(file.wrap.iv), wCt = unb64(file.wrap.ct);
@@ -3483,14 +3835,15 @@ function envBuild(file) {
     const iterK = file.kdf.iter / 1000;
     const out = new Uint8Array(ENV_FIXED + bCt.length);
     let o = 0;
+    const v2 = file.body.comp === "v2" || file.body.comp === "v2z";
     out[o++] = 66; out[o++] = 83;            // "BS"
-    out[o++] = ENV_VER;
+    out[o++] = v2 ? ENV_VER_V2 : ENV_VER;
     out[o++] = (iterK >> 8) & 255; out[o++] = iterK & 255;
     out.set(salt, o); o += 16;
     out.set(wIv, o); o += 12;
     out.set(wCt, o); o += 48;
     out.set(bIv, o); o += 12;
-    out[o++] = file.body.comp === "gzip" ? 1 : 0;
+    out[o++] = (file.body.comp === "gzip" || file.body.comp === "v2z") ? 1 : 0;
     out.set(bCt, o);
     return out;
 }
@@ -3498,34 +3851,41 @@ function envBuild(file) {
 function envParse(bytes) {
     if (bytes.length <= ENV_FIXED) throw new Error("that backup is truncated");
     if (bytes[0] !== 66 || bytes[1] !== 83) throw new Error("that is not a back-stop backup");
-    if (bytes[2] !== ENV_VER) throw new Error("that backup was written by a newer version");
+    const ver = bytes[2];
+    if (ver !== ENV_VER && ver !== ENV_VER_V2) throw new Error("that backup was written by a newer version");
     let o = 3;
     const iter = ((bytes[3] << 8) | bytes[4]) * 1000;
     o = 5;
     const take = n => { const v = bytes.subarray(o, o + n); o += n; return v; };
     const salt = take(16), wIv = take(12), wCt = take(48), bIv = take(12);
     const flags = bytes[o++];
+    /* Version 2 uses one flag bit. Any other set is something later than this
+       page knows how to read, and guessing at it would only fail to decrypt. */
+    if (ver === ENV_VER_V2 && (flags & ~1)) throw new Error("that backup was written by a newer version");
     const bCt = bytes.subarray(o);
+    const comp = ver === ENV_VER_V2 ? ((flags & 1) ? "v2z" : "v2") : ((flags & 1) ? "gzip" : "none");
     return {
         app: APP.id, format: FORMAT, schema: APP.schema, exported: "from paper",
         kdf: { alg: "PBKDF2-SHA256", iter, salt: b64(salt) },
         wrap: { alg: "A256GCM", iv: b64(wIv), ct: b64(wCt) },
-        body: { alg: "A256GCM", comp: (flags & 1) ? "gzip" : "none", iv: b64(bIv), ct: b64(bCt) }
+        body: { alg: "A256GCM", comp, iv: b64(bIv), ct: b64(bCt) }
     };
 }
 
-const qrBytesFor = v => Math.floor((QR_CAP[v - 1] * 8 - 4 - (v < 10 ? 8 : 16)) / 8);
-
-function qrChunks(text) {
-    const room = qrBytesFor(QR_MAX_VERSION);
+/* kind 2 is the base41 text in alphanumeric symbols, kind 1 the older base64
+   in byte-mode ones. */
+function qrChunks(text, kind) {
+    const alnum = kind === 2;
+    const tag = alnum ? "BS2:" : "BS1:";
+    const room = qrRoom(alnum ? "alnum" : "byte", QR_MAX_VERSION);
     for (let n = 1; n <= 24; n++) {
-        const per = room - ("BS1:" + n + "/" + n + ":").length;
+        const per = room - (tag + n + "/" + n + ":").length;
         if (per <= 0) break;
         if (per * n >= text.length) {
             const size = Math.ceil(text.length / n);
             const out = [];
             for (let i = 0; i < n; i++)
-                out.push("BS1:" + (i + 1) + "/" + n + ":" + text.slice(i * size, (i + 1) * size));
+                out.push(tag + (i + 1) + "/" + n + ":" + text.slice(i * size, (i + 1) * size));
             return out;
         }
     }
@@ -3534,9 +3894,16 @@ function qrChunks(text) {
 
 /* Kept in step with unpack_paper() in recover.py: the two must agree on what
    counts as a complete, consistent set, and give the same guidance when it is
-   not. This is the path most people take, so it gets the full message. */
+   not. This is the path most people take, so it gets the full message.
+   Returns the joined text and which kind it is. BS2 is read whatever its case,
+   since its alphabet is capitals only and a lower-case letter can only be
+   one that something along the way folded. */
 function qrJoin(text) {
-    const re = /BS1:(\d+)\/(\d+):([A-Za-z0-9+/=]+)/g;
+    const has1 = /BS1:\d+\/\d+:/.test(text), has2 = /BS2:\d+\/\d+:/i.test(text);
+    if (has1 && has2)
+        throw new Error("these codes come from two different kinds of backup (BS1 and BS2). Read one backup at a time.");
+    const kind = has2 ? 2 : 1;
+    const re = kind === 2 ? /BS2:(\d+)\/(\d+):([0-9A-Za-z$%*+\-]+)/gi : /BS1:(\d+)\/(\d+):([A-Za-z0-9+/=]+)/g;
     const found = new Map();
     let total = 0, m;
     while ((m = re.exec(text)) !== null) {
@@ -3548,7 +3915,7 @@ function qrJoin(text) {
         if (i < 1 || i > n)
             throw new Error("a code claims to be sheet " + i + " of " + n + ", which cannot be right");
         total = n;
-        found.set(i, m[3]);
+        found.set(i, kind === 2 ? m[3].toUpperCase() : m[3]);
     }
     if (!total) throw new Error("no back-stop codes found in that text");
     const missing = [];
@@ -3565,7 +3932,13 @@ function qrJoin(text) {
             " and paste " + (missing.length === 1 ? "it" : "them") +
             " in alongside what you already have, in any order.");
     }
-    return [...Array(total)].map((_, k) => found.get(k + 1)).join("");
+    return { kind, joined: [...Array(total)].map((_, k) => found.get(k + 1)).join("") };
+}
+
+/* Pasted text, or the scanner's, to the envelope bytes. */
+function paperBytes(text) {
+    const { kind, joined } = qrJoin(text);
+    return kind === 2 ? b41dec(joined) : unb64(joined);
 }
 
 const SVGNS = "http://www.w3.org/2000/svg";
@@ -3580,8 +3953,13 @@ const SVGNS = "http://www.w3.org/2000/svg";
    resolves. */
 const QR_PRINT_MM = 136;
 
-function qrNode(text, mm) {
-    const q = qrEncode(text);
+function qrNode(text, mm, mode, verify) {
+    const q = qrEncode(text, mode);
+    /* The module grid, read back by the decoder with no picture in between.
+       It catches a fault in the encoder before a sheet is printed, which is
+       the only time it can still be fixed. */
+    if (verify && QRD.fromMatrix(q.matrix, q.version) !== text)
+        throw new Error("a code did not read back the same, so nothing was printed");
     const qz = 4, dim = q.size + qz * 2;
     let d = "";
     for (let r = 0; r < q.size; r++) for (let c = 0; c < q.size; c++)
@@ -3667,8 +4045,9 @@ function printPlain() {
    nothing but a pen, a phone and Python, for whoever has this in ten years
    and not this tool. It repeats the README's technical reference on purpose,
    since the README may not be anywhere they can reach. */
-function referencePage(env, mark) {
+function referencePage(env, mark, kind) {
     const iter = ((env[3] << 8) | env[4]) * 1000;
+    const v2 = env[2] === ENV_VER_V2;
     const sheet = el("section", "ps ps-ref");
     sheet.appendChild(psHead("Reference page", mark, "Opening this without back-stop", null));
     sheet.appendChild(psSub("how the codes are put together, and how to open them with Python alone"));
@@ -3688,7 +4067,8 @@ function referencePage(env, mark) {
      ["AES-GCM nonce for the wrapped key", "12"],
      ["Wrapped 32-byte data key, with its 16-byte tag", "48"],
      ["AES-GCM nonce for the body", "12"],
-     ["Flags: bit 0 is set when the body is gzipped", "1"],
+     [v2 ? "Flags: bit 0 is set when the JSON in the body is zlib-compressed"
+         : "Flags: bit 0 is set when the body is gzipped", "1"],
      ["Body ciphertext, with its 16-byte tag", "the rest"]].forEach(([k, n]) => {
         const tr = el("tr");
         tr.appendChild(el("td", "", k));
@@ -3698,10 +4078,18 @@ function referencePage(env, mark) {
     table.appendChild(body);
 
     sheet.appendChild(psPanel("ps-panel", "What the codes hold",
-        el("p", "", "Each code carries one piece of a single base64 string, written BS1:i/n: and " +
-                    "then the piece, where i is the sheet and n is how many sheets there are. " +
-                    "Join the pieces in order of i, leave the prefixes out, and base64-decode " +
-                    "the result. What comes out is this envelope, with its lengths in bytes:"),
+        el("p", "", kind === 2
+            ? "Each code carries one piece of a single text, written BS2:i/n: and then the piece, " +
+              "where i is the sheet and n is how many sheets there are. Join the pieces in order " +
+              "of i and leave the prefixes out. Decode what is left as base41: the symbols " +
+              "0-9, A-Z, $ % * + - stand for 0 to 40 in that order. Every 3 symbols c0 c1 c2 " +
+              "are the number c0 + 41*c1 + 1681*c2, which is 2 bytes, high byte first, and a " +
+              "last pair c0 c1 is 1 byte, c0 + 41*c1. What comes out is this envelope, with " +
+              "its lengths in bytes:"
+            : "Each code carries one piece of a single base64 string, written BS1:i/n: and " +
+              "then the piece, where i is the sheet and n is how many sheets there are. " +
+              "Join the pieces in order of i, leave the prefixes out, and base64-decode " +
+              "the result. What comes out is this envelope, with its lengths in bytes:"),
         table));
 
     sheet.appendChild(psPanel("ps-panel", "Opening the envelope", psSteps([
@@ -3712,9 +4100,27 @@ function referencePage(env, mark) {
             "The result is the 32-byte data key.",
         "AES-256-GCM decrypt the body with the data key and the body nonce. The recovery key " +
             "card holds the data key itself, so with the card you start here.",
-        "If the flag bit is set, gunzip the result. It is JSON: the vault label and note, and " +
-            "every account with its codes."
+        v2
+            ? "The result is a length J (7 bits a byte, low bits first, top bit set while more " +
+              "follow), then J bytes of JSON (zlib-decompress them if the flag bit is set), then " +
+              "packed codes. The JSON is the vault label and note and every account. An account " +
+              "with a \"pk\" in place of \"codes\" has its codes in the packed part, described below."
+            : "If the flag bit is set, gunzip the result. It is JSON: the vault label and note, and " +
+              "every account with its codes."
     ])));
+    if (v2) {
+        sheet.appendChild(psPanel("ps-panel", "Packed codes",
+            el("p", "", "A \"pk\" such as ddddd=-ddddd/10 is a layout and a count: ten codes of the " +
+                        "shape five digits, a dash, five digits. Read it left to right. d is a decimal " +
+                        "digit, x a lowercase hex digit, X an uppercase one, a a lowercase letter or " +
+                        "digit, A an uppercase letter or digit, m any letter or digit, and = makes the " +
+                        "next character stand for itself. Each code is one number, first position " +
+                        "most significant, in the mixed radix of those positions (digits 0-9, then " +
+                        "letters in order), written in the fewest bits that hold the largest such " +
+                        "number (a, A and x, X count 0-9 then the letters; m counts 0-9, A-Z, a-z). " +
+                        "The packed codes of all accounts follow one another, in the order the " +
+                        "accounts appear, high bit first, the last byte padded with zeros.")));
+    }
 
     const pre = el("pre", "", "python3 recover.py scanned.txt\npython3 recover.py --selftest");
     sheet.appendChild(psPanel("ps-panel", "Or let recover.py do it", pre,
@@ -3726,15 +4132,60 @@ function referencePage(env, mark) {
     return sheet;
 }
 
+/* Everything a printed backup is made of, checked before any of it is shown.
+   The vault is sealed the way this page writes now (the packed container in
+   base41, alphanumeric symbols), then read back the way a scan would read it:
+   the symbols' module grids through the decoder, the text through the same
+   joiner the paste box uses, the envelope through the same parser, and the
+   body through the same opener and the data key, and the result compared
+   with the open vault field by field. If any step fails or differs, the plainer
+   body is tried, and after that the format every earlier version printed. A
+   failure of all three throws, and nothing is printed. */
+async function paperSet() {
+    const want = vaultKey(normaliseVault(state));
+    const attempt = async (env, kind) => {
+        const chunks = qrChunks(kind === 2 ? b41enc(env) : b64(env), kind);
+        const back = await openBody(envParse(paperBytes(chunks.join("\n"))), vault.dataKey);
+        if (vaultKey(back) !== want) throw new Error("the backup did not read back the same, so nothing was printed");
+        const mode = kind === 2 ? "alnum" : "byte";
+        const nodes = chunks.map(t => qrNode(t, QR_PRINT_MM, mode, true));
+        return { env, chunks, nodes, kind, note: "" };
+    };
+
+    const text = await bodyV2(false), packed = await bodyV2(true);
+    const plans = packed.packed && packed.plain.length < text.plain.length ? [packed, text] : [text];
+    let why = "";
+    for (const plan of plans) {
+        try {
+            const sealed = await gcmEnc(vault.dataKey, plan.plain);
+            sealed.comp = plan.comp;
+            return await attempt(envBuild({ kdf: vault.kdf, wrap: vault.wrap, body: sealed }), 2);
+        } catch (e) {
+            why = e.message;
+            if (/too large/.test(why)) throw e;
+        }
+    }
+    /* The older format, which is bigger but has been what every backup so far
+       was printed in. */
+    const set = await attempt(envBuild(await buildFile()), 1);
+    set.note = "Printed in the older format (" + why + ")";
+    return set;
+}
+
+/* A vault as a string, for comparing two of them. Both must be normalised. */
+function vaultKey(d) {
+    return JSON.stringify([[d.meta.label, d.meta.date, d.meta.note],
+                           d.items.map(i => [i.site, i.user, i.codes, i.note, i.body])]);
+}
+
 async function printBackup() {
     if (!vault.open) return;
-    let chunks, env, nodes, mark;
+    let set, mark;
     try {
-        env = envBuild(await buildFile());
-        chunks = qrChunks(b64(env));
-        nodes = chunks.map(t => qrNode(t, QR_PRINT_MM));
-        mark = await setMark(env);
+        set = await paperSet();
+        mark = await setMark(set.env);
     } catch (e) { return notify(e.message, true); }
+    const { chunks, env, nodes, kind } = set;
 
     const host = $("#qrPages");
     host.textContent = "";
@@ -3789,7 +4240,7 @@ async function printBackup() {
         sheet.appendChild(psFoot());
         pages.push(sheet);
     });
-    pages.push(referencePage(env, mark));
+    pages.push(referencePage(env, mark, kind));
 
     /* Two to a page: pair the sheets up, and make the page landscape. */
     let pageStyle = null;
@@ -3822,7 +4273,8 @@ async function printBackup() {
     window.addEventListener("afterprint", clean, { once: true });
     setTimeout(clean, 60000);
     window.print();
-    notify(chunks.length === 1 ? "One code, " + env.length + " bytes" : chunks.length + " codes to print");
+    notify((chunks.length === 1 ? "One code, " + env.length + " bytes" : chunks.length + " codes to print") +
+           (set.note ? ". " + set.note : ""));
 }
 
 
@@ -3865,7 +4317,7 @@ $("#btnPaperCancel").addEventListener("click", () => {
    not a backup, and nothing if it was read. */
 function loadPaper(text) {
     let file;
-    try { file = envParse(unb64(qrJoin(text))); }
+    try { file = envParse(paperBytes(text)); }
     catch (e) { return e.message; }
     pending = file;
     lockUi("open", "vault from a printed backup");
@@ -4054,13 +4506,14 @@ dlg.addEventListener("cancel", e => { e.preventDefault(); closeEditor(); renderR
 
 toggle($("#tgBlur"), on => { blurOn = on; reblurAll(); });
 
-/* ---------- QR decoder, byte mode, error level M ---------------------------
+/* ---------- QR decoder, byte and alphanumeric mode, error level M ----------
    Written for this tool rather than pulled in as a dependency, for the same
    reason the QR encoder in index.html was: a page you are asked to trust with
    the way back into your accounts should not run code you cannot read in the
    one file in front of you.
 
-   It reads what back-stop prints and nothing else: byte mode, error level M,
+   It reads what back-stop prints and nothing else: byte and alphanumeric
+   mode, error level M,
    dark on light, any version 1 to 40, and the mirror image of one. It finds the three finder patterns,
    guesses the version from how far apart they are, fits the grid to them and
    to every alignment pattern it can find, samples every module, and
@@ -4148,7 +4601,7 @@ const QRD = (() => {
     }
 
     /* ---- tables: error level M block structure and alignment centres ---- */
-    const ECC = QR_ECC, ALIGN = QR_ALIGN;
+    const ECC = QR_ECC, ALIGN = QR_ALIGN, ALNUM = QR_ALNUM;
 
     /* The 32 valid format words, and the 34 valid version words. */
     const bch = (v, shift, gen, genBits) => {
@@ -4296,7 +4749,8 @@ const QRD = (() => {
         }
         if (bad) return null;
 
-        /* Byte-mode segments only. Anything else is not one of ours. */
+        /* Byte-mode and alphanumeric segments only. Anything else is not one
+           of ours. */
         let pos = 0;
         const nbits = data.length * 8;
         const take = n => {
@@ -4308,12 +4762,30 @@ const QRD = (() => {
         while (pos + 4 <= nbits) {
             const mode = take(4);
             if (mode === 0) break;
-            if (mode !== 4) return null;
-            const cc = ver < 10 ? 8 : 16;
-            if (pos + cc > nbits) return null;
-            const n = take(cc);
-            if (pos + n * 8 > nbits) return null;
-            for (let i = 0; i < n; i++) text += String.fromCharCode(take(8));
+            if (mode === 4) {
+                const cc = ver < 10 ? 8 : 16;
+                if (pos + cc > nbits) return null;
+                const n = take(cc);
+                if (pos + n * 8 > nbits) return null;
+                for (let i = 0; i < n; i++) text += String.fromCharCode(take(8));
+            } else if (mode === 2) {
+                const cc = ver < 10 ? 9 : ver < 27 ? 11 : 13;
+                if (pos + cc > nbits) return null;
+                const n = take(cc);
+                if (pos + 11 * (n >> 1) + 6 * (n & 1) > nbits) return null;
+                for (let i = 0; i + 1 < n; i += 2) {
+                    const v = take(11);
+                    if (v >= 45 * 45) return null;
+                    text += ALNUM[Math.floor(v / 45)] + ALNUM[v % 45];
+                }
+                if (n & 1) {
+                    const v = take(6);
+                    if (v >= 45) return null;
+                    text += ALNUM[v];
+                }
+            } else {
+                return null;
+            }
         }
         return { text, fixed };
     }
@@ -4788,7 +5260,19 @@ const QRD = (() => {
         return found;
     }
 
-    return { decode };
+    /* The text in a symbol given as its module grid, without a picture: what
+       the encoder drew, read back by the decoder. Used to check a code before
+       it is printed. matrix[r][c] is 1 for dark. Returns the text, or null. */
+    function fromMatrix(matrix, ver) {
+        const size = ver * 4 + 17;
+        if (matrix.length !== size) return null;
+        const bits = new Uint8Array(size * size);
+        for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) bits[r * size + c] = matrix[r][c] ? 1 : 0;
+        const r = decodeModules(bits, ver);
+        return r ? r.text : null;
+    }
+
+    return { decode, fromMatrix };
 })();
 
 
@@ -4813,9 +5297,11 @@ const SCAN = (() => {
     const PHOTO_MAX = 3000;              // longest side, in pixels, a photo is read at
     const VIDEO_MAX = 1920;
     const ENV_MIN = 3 + 2 + 16 + 12 + 48 + 12 + 1;   // the fixed part of the envelope
-    const CHUNK = /^BS1:(\d{1,2})\/(\d{1,2}):([A-Za-z0-9+\/=]+)$/;
+    const CHUNK1 = /^BS1:(\d{1,2})\/(\d{1,2}):([A-Za-z0-9+\/=]+)$/;
+    const CHUNK2 = /^BS2:(\d{1,2})\/(\d{1,2}):([0-9A-Z$%*+\-]+)$/;
 
-    let sheets = new Map();              // sheet number -> its piece of the base64
+    let sheets = new Map();              // sheet number -> its piece of the text
+    let kind = 0;                        // 1 for the older base64 sheets, 2 for base41, once one is read
     let total = 0;                       // how many sheets there are, from the first one read
     let keyText = null;                  // the recovery key, once its card has been read
     let delivered = false;               // the joined backup has been handed to From paper
@@ -4835,9 +5321,12 @@ const SCAN = (() => {
         catch (e) { return /typo/.test(e.message) ? "bad" : null; }
     }
 
-    function takeSheet(i, n, piece) {
+    function takeSheet(k, i, n, piece) {
         if (n < 1 || n > MAX_SHEETS || i < 1 || i > n)
             return { kind: "bad", note: "That code says it is sheet " + i + " of " + n + ", which cannot be right." };
+        if (kind && k !== kind)
+            return { kind: "bad", note: "That sheet is from a different kind of backup than the ones already read. " +
+                "They are from different prints. Press Start over to read a different backup." };
         if (total && n !== total)
             return { kind: "bad", note: "That code is from a backup of " + n + " sheets, but the sheets already read are from one of " +
                 total + ". They are from different prints. Press Start over to read a different backup." };
@@ -4846,6 +5335,7 @@ const SCAN = (() => {
                 ? { kind: "dup", note: "Sheet " + i + " is already read." }
                 : { kind: "bad", note: "Sheet " + i + " is already read and this one is different, so they come from two " +
                     "different prints. Press Start over to read a different backup." };
+        kind = k;
         total = n;
         sheets.set(i, piece);
         return { kind: "sheet", note: "Read sheet " + i + " of " + n + "." };
@@ -4855,10 +5345,11 @@ const SCAN = (() => {
        already open, so a backup sheet in view is not one to take. */
     async function take(text, onlyKey) {
         const t = String(text).trim();
-        const m = CHUNK.exec(t);
+        const m1 = CHUNK1.exec(t), m2 = m1 ? null : CHUNK2.exec(t.toUpperCase());
+        const m = m1 || m2;
         if (m) return onlyKey
             ? { kind: "other", note: "That is a backup sheet. Show the key card, which has one square code." }
-            : takeSheet(+m[1], +m[2], m[3]);
+            : takeSheet(m1 ? 1 : 2, +m[1], +m[2], m[3]);
         const k = await keyFrom(t);
         if (k === "bad")
             return { kind: "bad", note: "That looks like a recovery key, but its check characters do not match. Scan it again." };
@@ -4873,7 +5364,7 @@ const SCAN = (() => {
     /* The sheets, in order, as the lines From paper takes. */
     function joinedText() {
         const out = [];
-        for (let i = 1; i <= total; i++) out.push("BS1:" + i + "/" + total + ":" + sheets.get(i));
+        for (let i = 1; i <= total; i++) out.push("BS" + kind + ":" + i + "/" + total + ":" + sheets.get(i));
         return out.join("\n");
     }
 
@@ -4884,12 +5375,12 @@ const SCAN = (() => {
         try {
             let all = "";
             for (let i = 1; i <= total; i++) all += sheets.get(i);
-            const bin = atob(all);
+            const bin = kind === 2 ? b41dec(all) : Uint8Array.from(atob(all), c => c.charCodeAt(0));
             bytes = bin.length;
             if (bytes <= ENV_MIN) return { ok: false, why: "These sheets join into something too short to be a back-stop backup." };
-            if (bin.charCodeAt(0) !== 66 || bin.charCodeAt(1) !== 83)
+            if (bin[0] !== 66 || bin[1] !== 83)
                 return { ok: false, why: "These sheets join into something that does not start like a back-stop backup." };
-            if (bin.charCodeAt(2) !== ENV_VER)
+            if (bin[2] !== ENV_VER && bin[2] !== ENV_VER_V2)
                 return { ok: false, why: "This backup was written by a newer version of back-stop than this page understands." };
         } catch (e) {
             return { ok: false, why: "These sheets do not join into a valid backup. A code may have been misread: Start over and scan again." };
@@ -4946,7 +5437,7 @@ const SCAN = (() => {
 
     /* Resets everything, hides the panel and turns the camera off. */
     function reset(quiet) {
-        sheets = new Map(); total = 0; keyText = null; lastNote = ""; delivered = false;
+        sheets = new Map(); kind = 0; total = 0; keyText = null; lastNote = ""; delivered = false;
         stopCamera();
         $("#scLog").textContent = "";
         $("#scPanel").hidden = true;
